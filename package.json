@@ -1,0 +1,25 @@
+{
+  "name": "himart-ga",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": "https://hwshin0819.github.io/himart-ga",
+  "dependencies": {
+    "@google-analytics/data": "^4.4.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^2.12.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test"
+  },
+  "eslintConfig": {
+    "extends": ["react-app"]
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version"]
+  }
+}
