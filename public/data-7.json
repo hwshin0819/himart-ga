@@ -1,0 +1,71 @@
+{
+  "updatedAt": "2026-06-14T23:46:56.500Z",
+  "summary": {
+    "totalSend": 210,
+    "totalSendChange": 12,
+    "pageInflow": 1477,
+    "pageInflowChange": -1,
+    "conversionRate": 14.2,
+    "bannerDismissRate": 7.6
+  },
+  "sendBySource": {
+    "home": 84,
+    "listing": 63,
+    "contract": 63
+  },
+  "pageActions": {
+    "alimtalk": 84,
+    "guide": 443,
+    "external": 221,
+    "store": 147
+  },
+  "listingFunnel": {
+    "bannerClick": 315,
+    "modalSend": 63,
+    "dismiss": 21
+  },
+  "contractFunnel": {
+    "sendBtn": 420,
+    "next": 252,
+    "complete": 63
+  },
+  "dailyTrend": {
+    "20260608": 21,
+    "20260609": 29,
+    "20260610": 30,
+    "20260611": 29,
+    "20260612": 39,
+    "20260613": 31,
+    "20260614": 11,
+    "20260615": 12
+  },
+  "b2cSummary": {
+    "pageInflow": 967,
+    "pageInflowChange": 16,
+    "couponGet": 251,
+    "couponGetChange": 4,
+    "reqReserve": 82,
+    "reqReserveChange": -5,
+    "conversionRate": 8.5
+  },
+  "b2cCounselingPaths": {
+    "gnb": 41,
+    "mid": 24,
+    "low": 17
+  },
+  "b2cTabs": {
+    "lease": 580,
+    "buy": 387
+  },
+  "b2cFunnel": {
+    "detail": 483,
+    "phone": 338,
+    "get": 251
+  },
+  "b2cOther": {
+    "gnbCoupon": 96,
+    "buyFee": 48,
+    "androidDown": 22,
+    "appleDown": 5
+  }
+}

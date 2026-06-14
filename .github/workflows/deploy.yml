@@ -2,8 +2,13 @@ name: GA4 Data Fetch & Deploy
 
 on:
   schedule:
-    - cron: '0 1 * * *'
+    - cron: '0 23 * * *'
   workflow_dispatch:
+    inputs:
+      period:
+        description: 'Date range in days (7, 14, 30, 90 or all)'
+        required: false
+        default: 'all'
 
 jobs:
   fetch-and-deploy:
@@ -18,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: npm install
@@ -27,7 +32,7 @@ jobs:
         env:
           GA_CREDENTIALS: ${{ secrets.GA_CREDENTIALS }}
           GA_PROPERTY_ID: ${{ secrets.GA_PROPERTY_ID }}
-        run: node scripts/fetch-ga-data.js
+        run: node scripts/fetch-ga-data.js ${{ github.event.inputs.period || 'all' }}
 
       - name: Build React app
         run: npm run build
