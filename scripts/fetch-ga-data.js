@@ -8,20 +8,20 @@ const propertyId = process.env.GA_PROPERTY_ID;
 const client = new BetaAnalyticsDataClient({ credentials });
 
 const EVENTS = {
-  himart_guide: 'GTM_login_collaboration_himart_himartguide_detail',
-  safecare_guide: 'GTM_login_collaboration_himart_safecareguide_detail',
-  alimtalk_send_home: 'GTM_login_collaboration_himart_alimtalk_send',
-  safecare_external: 'GTM_login_collaboration_himart_safecare_external',
-  himartcare_external: 'GTM_login_collaboration_himart_himartcare_external',
-  store_view: 'GTM_login_collaboration_himart_store',
-  scroll: 'GTM_login_collaboration_himart_scroll',
-  banner_detail: 'GTM_login_main_offeings_ad_list_banner_himart_detail',
-  banner_dismiss: 'GTM_login_main_offeings_ad_list_banner_himart_dismiss',
-  modal_detail: 'GTM_login_main_offeings_ad_list_modal_himart_detail',
-  alimtalk_send_listing: 'GTM_login_main_offeings_ad_list_modal_himart_alimtalk_send',
-  contract_send_btn: 'GTM_login_main_contract_list_himart_benefit_send',
-  contract_next: 'GTM_login_main_contract_list_himart_benefit_target_select_next',
-  alimtalk_send_contract: 'GTM_login_main_contract_list_himart_benefit_alimtalk_send',
+  himart_guide: '로그인_홈_메인배너_제휴페이지_하이마트상세활용가이드자세히보기',
+  safecare_guide: '로그인_홈_메인배너_제휴페이지_안심케어가이드자세히보기',
+  alimtalk_send_home: '로그인_홈_메인배너_제휴페이지_알림톡발송',
+  safecare_external: '로그인_홈_메인배너_제휴페이지_이실장안심케어바로가기',
+  himartcare_external: '로그인_홈_메인배너_제휴페이지_하이마트안심케어바로가기',
+  store_view: '로그인_홈_메인배너_제휴페이지_파트너십혜택적용가능한하이마트지점전체보기',
+  scroll: '로그인_홈_메인배너_제휴페이지_스크롤',
+  banner_detail: '로그인_홈_매물관리_매물광고_자세히보기',
+  banner_dismiss: '로그인_홈_매물관리_매물광고_자세히보기_오늘하루보지않기',
+  modal_detail: '로그인_홈_매물관리_매물광고_자세히보기_자세히보기',
+  alimtalk_send_listing: '로그인_홈_매물관리_매물광고_자세히보기_알림톡발송',
+  contract_send_btn: '로그인_홈_계약관리_계약리스트_하이마트제휴정보발송',
+  contract_next: '로그인_홈_계약관리_계약리스트_하이마트제휴정보발송_다음',
+  alimtalk_send_contract: '로그인_홈_계약관리_계약리스트_하이마트제휴정보발송_다음_알림톡발송',
 };
 
 async function fetchEventCounts(startDate, endDate) {
