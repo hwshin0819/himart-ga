@@ -1,0 +1,16 @@
+{
+  "updatedAt": "2026-06-12T01:00:00.000Z",
+  "summary": {
+    "totalSend": 0,
+    "totalSendChange": 0,
+    "pageInflow": 0,
+    "pageInflowChange": 0,
+    "conversionRate": 0,
+    "bannerDismissRate": 0
+  },
+  "sendBySource": { "home": 0, "listing": 0, "contract": 0 },
+  "pageActions": { "alimtalk": 0, "guide": 0, "external": 0, "store": 0 },
+  "listingFunnel": { "bannerClick": 0, "modalSend": 0, "dismiss": 0 },
+  "contractFunnel": { "sendBtn": 0, "next": 0, "complete": 0 },
+  "dailyTrend": {}
+}
