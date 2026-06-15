@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend,
+  CartesianGrid, PieChart, Pie, Cell, Legend,
   LabelList,
 } from "recharts";
 
@@ -65,11 +65,6 @@ const formatDateYmd = (date) => {
   return `${yyyy}${mm}${dd}`;
 };
 
-const formatDateInput = (ymd) => {
-  if (!ymd || ymd.length !== 8) return "";
-  return `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`;
-};
-
 const formatDateInputToYmd = (inputVal) => {
   return inputVal.replace(/-/g, "");
 };
@@ -79,22 +74,6 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const getWeekday = (dateStr) => {
   const d = parseDate(dateStr);
   return WEEKDAYS[d.getDay()];
-};
-
-const RenderCustomDot = (props) => {
-  const { cx, cy, payload } = props;
-  if (cx === undefined || cy === undefined) return null;
-  const isWeekend = payload.isWeekend;
-  return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={isWeekend ? 5 : 3}
-      fill={isWeekend ? COLORS.coral : COLORS.blue}
-      stroke="#fff"
-      strokeWidth={isWeekend ? 2 : 1}
-    />
-  );
 };
 
 function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
@@ -121,11 +100,18 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
   const dailyTrend = {};
   const hourlyTrend = {};
   for (let h = 0; h < 24; h++) {
-    hourlyTrend[String(h).padStart(2, '0')] = 0;
+    const hStr = String(h).padStart(2, '0');
+    hourlyTrend[hStr] = 0;
+    hourlyTrend[hStr + "_user"] = 0;
   }
 
   const allNames = [...Object.values(EVENTS), ...Object.values(B2C_EVENTS)];
+  const allNamesWithUsers = [];
   for (const name of allNames) {
+    allNamesWithUsers.push(name);
+    allNamesWithUsers.push(name + "_user");
+  }
+  for (const name of allNamesWithUsers) {
     c[name] = 0;
     p[name] = 0;
   }
@@ -153,6 +139,7 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
   }
 
   const totalSend = (c[EVENTS.alimtalk_send_home] || 0) + (c[EVENTS.alimtalk_send_listing] || 0) + (c[EVENTS.alimtalk_send_contract] || 0);
+  const totalSendUser = (c[EVENTS.alimtalk_send_home + "_user"] || 0) + (c[EVENTS.alimtalk_send_listing + "_user"] || 0) + (c[EVENTS.alimtalk_send_contract + "_user"] || 0);
   const prevTotalSend = (p[EVENTS.alimtalk_send_home] || 0) + (p[EVENTS.alimtalk_send_listing] || 0) + (p[EVENTS.alimtalk_send_contract] || 0);
   const pageInflow = (c[EVENTS.scroll] || 0);
   const prevPageInflow = (p[EVENTS.scroll] || 0);
@@ -168,6 +155,7 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
     updatedAt: updatedAt || new Date().toISOString(),
     summary: {
       totalSend,
+      totalSendUser,
       totalSendChange: prevTotalSend ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100) : 0,
       pageInflow,
       pageInflowChange: prevPageInflow ? Math.round(((pageInflow - prevPageInflow) / prevPageInflow) * 100) : 0,
@@ -178,8 +166,11 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
     },
     sendBySource: {
       home: c[EVENTS.alimtalk_send_home] || 0,
+      home_user: c[EVENTS.alimtalk_send_home + "_user"] || 0,
       listing: c[EVENTS.alimtalk_send_listing] || 0,
+      listing_user: c[EVENTS.alimtalk_send_listing + "_user"] || 0,
       contract: c[EVENTS.alimtalk_send_contract] || 0,
+      contract_user: c[EVENTS.alimtalk_send_contract + "_user"] || 0,
     },
     pageActions: {
       alimtalk: c[EVENTS.alimtalk_send_home] || 0,
@@ -235,32 +226,49 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
   };
 }
 
-function KpiCard({ label, value, change, unit = "", valueColor }) {
+function KpiCard({ label, value, change, unit = "", valueColor, icon, showChange, userCount }) {
   const isPos = change >= 0;
   return (
     <div style={{
-      background: "#fff", borderRadius: 10, padding: "16px 20px",
-      border: "1px solid #eee", flex: 1, minWidth: 0,
-      boxShadow: "0 2px 5px rgba(0,0,0,0.01)"
+      background: "#fff", borderRadius: "8px", padding: "16px 20px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1)",
+      flex: 1, minWidth: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-start"
     }}>
-      <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{label}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <div style={{ fontSize: 26, fontWeight: 600, color: valueColor || "#222" }}>
-          {typeof value === "number" ? value.toLocaleString() : value}{unit}
+      <div>
+        <div style={{ fontSize: "12px", color: "#666", marginBottom: "6px", fontWeight: 500 }}>{label}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", flexWrap: "wrap" }}>
+          <div style={{ fontSize: userCount !== undefined ? "18px" : "24px", fontWeight: 700, color: "#222" }}>
+            {typeof value === "number" ? value.toLocaleString() : value}{unit}
+            {userCount !== undefined && (
+              <span style={{ fontSize: "12px", color: "#666", fontWeight: 500, marginLeft: "4px" }}>
+                (중개사 {userCount.toLocaleString()}명)
+              </span>
+            )}
+          </div>
+          {valueColor && (
+            <span style={{
+              display: "inline-block",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: valueColor,
+              marginLeft: "4px",
+              transform: "translateY(-2px)"
+            }} />
+          )}
         </div>
-        {valueColor && (
-          <span style={{
-            display: "inline-block",
-            width: "8px",
-            height: "8px",
-            borderRadius: "50%",
-            backgroundColor: valueColor
-          }} />
+        {showChange && change !== undefined && (
+          <div style={{ fontSize: "11px", marginTop: "4px", color: isPos ? "#1D9E75" : "#E24B4A", fontWeight: 500 }}>
+            {isPos ? "▲" : "▼"} {Math.abs(change)}% vs 이전 기간
+          </div>
         )}
       </div>
-      {change !== undefined && (
-        <div style={{ fontSize: 12, marginTop: 4, color: isPos ? "#1D9E75" : "#E24B4A" }}>
-          {isPos ? "▲" : "▼"} {Math.abs(change)}% vs 이전 기간
+      {icon && (
+        <div style={{
+          fontSize: "18px", background: "#f5f6f8", width: "36px", height: "36px",
+          borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          {icon}
         </div>
       )}
     </div>
@@ -269,7 +277,7 @@ function KpiCard({ label, value, change, unit = "", valueColor }) {
 
 function SectionTitle({ children }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 12 }}>
+    <div style={{ fontSize: 13, fontWeight: 600, color: "#444", marginBottom: 12 }}>
       {children}
     </div>
   );
@@ -278,8 +286,8 @@ function SectionTitle({ children }) {
 function Card({ children, style = {} }) {
   return (
     <div style={{
-      background: "#fff", borderRadius: 10, padding: "16px 20px",
-      border: "1px solid #eee", ...style,
+      background: "#fff", borderRadius: 8, padding: "16px 20px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1)", ...style,
     }}>
       {children}
     </div>
@@ -307,67 +315,74 @@ function formatKoreanUpdatedDate(isoString) {
 }
 
 function Funnel({ title, steps, footerText, footerColor }) {
+  const maxVal = steps[0]?.value || 1;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 4 }}>{title}</div>
-      {steps.map((step, idx) => {
-        let dropRate = null;
-        if (idx > 0 && steps[idx - 1].value > 0) {
-          const prevVal = steps[idx - 1].value;
-          const currVal = step.value;
-          const drop = Math.round((1 - currVal / prevVal) * 100);
-          dropRate = Math.max(0, Math.min(100, drop));
-        }
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ fontSize: "13px", fontWeight: 600, color: "#444", marginBottom: "8px" }}>{title}</div>
+      <div style={{ fontFamily: "'Pretendard', monospace", fontSize: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+        {steps.map((step, idx) => {
+          let dropRateText = "";
+          if (idx > 0 && steps[idx - 1].value > 0) {
+            const prevVal = steps[idx - 1].value;
+            const currVal = step.value;
+            const drop = Math.round((1 - currVal / prevVal) * 100);
+            const clampedDrop = Math.max(0, Math.min(100, drop));
+            dropRateText = `▼ ${clampedDrop}% 이탈`;
+          } else {
+            dropRateText = "100%";
+          }
+          
+          const blockCount = Math.max(1, Math.round((step.value / maxVal) * 16));
+          const fillBlocks = "█".repeat(blockCount);
+          const emptyBlocks = "░".repeat(16 - blockCount);
+          const blockStr = fillBlocks + emptyBlocks;
 
-        const maxVal = steps[0].value || 1;
-        const pct = Math.round((step.value / maxVal) * 100);
-
-        return (
-          <div key={idx} style={{ position: "relative" }}>
-            {dropRate !== null && (
+          return (
+            <div key={idx} style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "#f8f9fa",
+              padding: "8px 12px",
+              borderRadius: "6px",
+              boxShadow: "inset 0 1px 2px rgba(0,0,0,0.02)"
+            }}>
+              <div style={{ width: "95px", fontWeight: 600, color: "#555" }}>
+                {step.name}
+              </div>
+              
               <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "11px",
-                color: "#E24B4A",
+                flex: 1,
+                textAlign: "left",
+                color: step.color || COLORS.blue,
+                letterSpacing: "0.5px",
+                marginLeft: "8px",
+                marginRight: "8px",
+                fontSize: "13px",
+                userSelect: "none"
+              }}>
+                {blockStr}
+              </div>
+              
+              <div style={{ width: "55px", textAlign: "right", fontWeight: 600, color: "#333" }}>
+                {step.value.toLocaleString()}명
+              </div>
+              
+              <div style={{
+                width: "80px",
+                textAlign: "right",
                 fontWeight: 600,
-                margin: "4px 0 4px 12px",
-                borderLeft: "2px dashed #E24B4A",
-                paddingLeft: "8px",
-                height: "16px"
+                color: idx === 0 ? "#666" : "#E24B4A",
+                fontSize: "11px"
               }}>
-                ▼ {dropRate}% 이탈
-              </div>
-            )}
-            
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, color: "#666", marginBottom: 4 }}>
-              <span>{step.name}</span>
-              <span style={{ fontWeight: 600, color: "#222" }}>{step.value.toLocaleString()}명</span>
-            </div>
-            
-            <div style={{ background: "#f0f0f0", borderRadius: 6, height: 24, overflow: "hidden", position: "relative" }}>
-              <div style={{
-                width: `${pct}%`,
-                height: "100%",
-                background: step.color || COLORS.blue,
-                borderRadius: 6,
-                transition: "width 0.5s ease-in-out",
-                display: "flex",
-                alignItems: "center",
-                paddingLeft: "10px",
-                boxSizing: "border-box"
-              }}>
-                <span style={{ fontSize: 10, color: step.textColor || "#fff", fontWeight: 600 }}>
-                  {pct}%
-                </span>
+                {dropRateText}
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {footerText && (
-        <div style={{ fontSize: 12, color: footerColor || "#666", marginTop: 8, fontWeight: 500 }}>
+        <div style={{ fontSize: "11px", color: footerColor || "#666", marginTop: "4px", textAlign: "right", fontWeight: 500 }}>
           {footerText}
         </div>
       )}
@@ -375,7 +390,7 @@ function Funnel({ title, steps, footerText, footerColor }) {
   );
 }
 
-function SummaryBar({ totalSend, pageInflow, homeSend, bannerClick, listingSend, sendBtn, contractSend, bannerDismissRate }) {
+function SummaryBar({ totalSend, totalSendUser, pageInflow, homeSend, bannerClick, listingSend, sendBtn, contractSend, bannerDismissRate }) {
   const channels = [
     { name: "계약관리", inflow: sendBtn, send: contractSend },
     { name: "제휴페이지", inflow: pageInflow, send: homeSend },
@@ -398,90 +413,83 @@ function SummaryBar({ totalSend, pageInflow, homeSend, bannerClick, listingSend,
   
   return (
     <div style={{
-      background: "linear-gradient(90deg, #378ADD 0%, #1D9E75 100%)",
-      borderRadius: "8px",
-      padding: "12px 20px",
-      color: "#fff",
-      fontSize: "13px",
+      fontSize: "12px",
+      color: "#666",
       fontWeight: 500,
-      marginBottom: "20px",
-      boxShadow: "0 4px 12px rgba(55, 138, 221, 0.15)",
+      marginTop: "-12px",
+      marginBottom: "16px",
+      paddingLeft: "4px",
       display: "flex",
       alignItems: "center",
-      justifyContent: "space-between"
+      gap: "6px"
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span style={{ fontSize: "16px" }}>📢</span>
-        <span>
-          선택 기간 총 <strong>{totalSend.toLocaleString()}건</strong> 발송 · 
-          <strong> {bestChannelName}</strong> 경로 효율 1위 ({bestRate.toFixed(1)}%) · 
-          배너 거부율 <strong>{bannerDismissRate.toFixed(1)}%</strong>
-          <span style={{
-            marginLeft: "6px",
-            background: dismissColor === "#E24B4A" ? "rgba(226, 75, 74, 0.2)" : "rgba(29, 158, 117, 0.2)",
-            border: `1px solid ${dismissColor}`,
-            padding: "2px 6px",
-            borderRadius: "4px",
-            fontSize: "11px",
-            fontWeight: 700,
-            color: "#fff"
-          }}>
-            {dismissStatus}
-          </span>
+      <span style={{ color: "#378ADD" }}>ℹ️</span>
+      <span>
+        선택 기간 총 <strong style={{ color: "#222" }}>{totalSend.toLocaleString()}건{totalSendUser ? ` (중개사 ${totalSendUser.toLocaleString()}명)` : ""}</strong> 발송 · 
+        <strong style={{ color: "#222" }}> {bestChannelName}</strong> 경로 효율 1위 ({bestRate.toFixed(1)}%) · 
+        배너 거부율 
+        <span style={{
+          color: dismissColor,
+          fontWeight: 700,
+          marginLeft: "4px"
+        }}>
+          {dismissStatus} ({bannerDismissRate.toFixed(1)}%)
         </span>
-      </div>
+      </span>
     </div>
   );
 }
 
-function ChannelEfficiencyCard({ pageInflow, homeSend, bannerClick, listingSend, sendBtn, contractSend }) {
-  const channels = [
+function EntryPointEfficiencyCard({ pageInflow, homeSend, bannerClick, listingSend, sendBtn, contractSend }) {
+  const list = [
+    {
+      name: "매물광고",
+      exposed: bannerClick,
+      sent: listingSend,
+      label: "exposed",
+      color: COLORS.coral
+    },
     {
       name: "계약관리",
-      inflow: sendBtn,
-      send: contractSend,
+      exposed: sendBtn,
+      sent: contractSend,
+      label: "clicked",
       color: COLORS.blue
     },
     {
       name: "제휴페이지",
-      inflow: pageInflow,
-      send: homeSend,
+      exposed: pageInflow,
+      sent: homeSend,
+      label: "visited",
       color: COLORS.green
-    },
-    {
-      name: "매물광고",
-      inflow: bannerClick,
-      send: listingSend,
-      color: COLORS.coral
     }
-  ].map(ch => {
-    const rate = ch.inflow ? Math.round((ch.send / ch.inflow) * 1000) / 10 : 0;
-    return { ...ch, rate };
-  }).sort((a, b) => b.rate - a.rate);
+  ].map(item => {
+    const rawRate = item.exposed ? (item.sent / item.exposed) * 100 : 0;
+    const rate = Math.min(100, rawRate);
+    return { ...item, rate };
+  });
 
   return (
-    <Card style={{ marginBottom: 16 }}>
-      <SectionTitle>B2B 진입점별 발송 효율 비교 (노출 대비 발송)</SectionTitle>
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
-        {channels.map((ch, idx) => (
-          <div key={idx} style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <div style={{ width: "85px", fontSize: "12px", fontWeight: 600, color: "#444" }}>
-              {idx + 1}위. {ch.name}
+    <Card style={{ marginBottom: "16px" }}>
+      <SectionTitle>진입점별 효율 비교 (전환율)</SectionTitle>
+      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "8px" }}>
+        {list.map((item, idx) => (
+          <div key={idx} style={{
+            flex: 1, minWidth: "180px", background: "#f8f9fa", padding: "12px",
+            borderRadius: "6px", border: "1px solid #eee"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "#333" }}>{item.name}</span>
+              <span style={{ fontSize: "14px", fontWeight: 700, color: item.color }}>{item.rate.toFixed(1)}%</span>
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "#888", marginBottom: "3px" }}>
-                <span>노출: {ch.inflow.toLocaleString()}건 | 발송: {ch.send.toLocaleString()}건</span>
-                <span style={{ fontWeight: 600, color: ch.color }}>{ch.rate}%</span>
-              </div>
-              <div style={{ background: "#f0f0f0", borderRadius: "4px", height: "10px", overflow: "hidden" }}>
-                <div style={{
-                  width: `${Math.min(100, ch.rate)}%`,
-                  height: "100%",
-                  background: ch.color,
-                  borderRadius: "4px",
-                  transition: "width 0.5s ease-in-out"
-                }} />
-              </div>
+            <div style={{ fontSize: "11px", color: "#666", marginBottom: "6px" }}>
+              {item.exposed.toLocaleString()} {item.label} → {item.sent.toLocaleString()} sent
+            </div>
+            <div style={{ background: "#e4e6eb", height: "6px", borderRadius: "3px", overflow: "hidden" }}>
+              <div style={{
+                background: item.color, height: "100%", width: `${item.rate}%`,
+                transition: "width 0.5s ease-in-out"
+              }} />
             </div>
           </div>
         ))}
@@ -586,16 +594,24 @@ export default function App() {
     b2cOther = { gnbCoupon: 0, buyFee: 0, androidDown: 0, appleDown: 0 }
   } = displayData;
 
-  const dates = Object.keys(rawFetchedData?.dailyEvents || {}).sort();
-  const minSelectableDate = dates[0] ? formatDateInput(dates[0]) : "";
-  const maxSelectableDate = dates[dates.length - 1] ? formatDateInput(dates[dates.length - 1]) : "";
-
   // B2B Chart Data
   const sourceData = [
-    { name: "계약관리", value: sendBySource.contract, fill: COLORS.blue },
-    { name: "제휴페이지", value: sendBySource.home, fill: COLORS.green },
-    { name: "매물광고", value: sendBySource.listing, fill: COLORS.coral },
+    { name: "계약관리", value: sendBySource.contract, userValue: sendBySource.contract_user, fill: COLORS.blue },
+    { name: "제휴페이지", value: sendBySource.home, userValue: sendBySource.home_user, fill: COLORS.green },
+    { name: "매물광고", value: sendBySource.listing, userValue: sendBySource.listing_user, fill: COLORS.coral },
   ];
+
+  const renderBarLabel = (props) => {
+    const { x, y, width, height, index } = props;
+    const entry = sourceData[index];
+    if (!entry) return null;
+    const labelText = `${entry.value}건 (중개사 ${entry.userValue}명)`;
+    return (
+      <text x={x + width + 5} y={y + height / 2} fill="#333" fontSize={10} fontWeight={600} textAnchor="start" dominantBaseline="middle">
+        {labelText}
+      </text>
+    );
+  };
 
   const pieData = [
     { name: "알림톡 발송", value: pageActions.alimtalk },
@@ -616,19 +632,29 @@ export default function App() {
     .map(([date, count]) => {
       const weekday = getWeekday(date);
       const isWeekend = weekday === "토" || weekday === "일";
+      
+      const eventsForDay = displayData.dailyEvents?.[date] || {};
+      const homeUser = eventsForDay[EVENTS.alimtalk_send_home + "_user"] || 0;
+      const listingUser = eventsForDay[EVENTS.alimtalk_send_listing + "_user"] || 0;
+      const contractUser = eventsForDay[EVENTS.alimtalk_send_contract + "_user"] || 0;
+      const totalUser = homeUser + listingUser + contractUser;
+      
       return {
         dateStr: date,
         date: `${date.slice(4, 6)}/${date.slice(6, 8)} (${weekday})`,
         발송: count,
+        중개사: totalUser,
         isWeekend,
       };
     });
 
   const hourlyChartData = Object.entries(hourlyTrend || {})
+    .filter(([hour]) => !hour.endsWith("_user"))
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([hour, count]) => ({
       hour: hour + "시",
       발송: count,
+      중개사: hourlyTrend[hour + "_user"] || 0,
     }));
 
   // B2C Chart Data
@@ -644,34 +670,52 @@ export default function App() {
   ];
 
   return (
-    <div style={{ background: "#f5f6f8", minHeight: "100vh", padding: "24px", fontFamily: "'Pretendard', -apple-system, sans-serif" }}>
+    <div style={{ background: "#f5f6f8", minHeight: "100vh", padding: "16px 24px", fontFamily: "'Pretendard', -apple-system, sans-serif" }}>
       {/* 대시보드 헤더 */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: "16px" }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#222" }}>🛒 하이마트 제휴 대시보드</div>
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: "16px",
+        flexWrap: "wrap",
+        gap: "12px"
+      }}>
+        <div style={{ fontSize: "20px", fontWeight: 700, color: "#222" }}>
+          🛒 하이마트 제휴 대시보드
         </div>
 
-        {/* 날짜 필터 제어 및 업데이트 정보 영역 */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "8px" }}>
-          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-            {/* 달력 날짜 피커 (앞으로 이동) */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fff", padding: "4px 8px", borderRadius: "8px", border: "1px solid #ddd" }}>
+        {/* 날짜 필터 및 업데이트 정보 영역 */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            {/* 달력 날짜 피커 */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#fff",
+              padding: "4px 8px",
+              borderRadius: "8px",
+              border: "1px solid #ddd",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+            }}>
               <input
-                type="date"
+                type={startDateVal ? "date" : "text"}
+                placeholder="시작일 (날짜를 선택해주세요)"
                 value={startDateVal}
-                min={minSelectableDate}
-                max={maxSelectableDate}
+                onFocus={(e) => e.target.type = "date"}
+                onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
                 onChange={(e) => setStartDateVal(e.target.value)}
-                style={{ border: "none", outline: "none", fontSize: "12px", color: "#333", cursor: "pointer" }}
+                style={{ border: "none", outline: "none", fontSize: "11px", color: "#333", cursor: "pointer", width: "135px" }}
               />
-              <span style={{ fontSize: "12px", color: "#999" }}>~</span>
+              <span style={{ fontSize: "11px", color: "#999" }}>~</span>
               <input
-                type="date"
+                type={endDateVal ? "date" : "text"}
+                placeholder="종료일 (날짜를 선택해주세요)"
                 value={endDateVal}
-                min={minSelectableDate}
-                max={maxSelectableDate}
+                onFocus={(e) => e.target.type = "date"}
+                onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
                 onChange={(e) => setEndDateVal(e.target.value)}
-                style={{ border: "none", outline: "none", fontSize: "12px", color: "#333", cursor: "pointer" }}
+                style={{ border: "none", outline: "none", fontSize: "11px", color: "#333", cursor: "pointer", width: "135px" }}
               />
               <button
                 onClick={applyCustomRange}
@@ -680,7 +724,7 @@ export default function App() {
                   color: "#fff",
                   border: "none",
                   borderRadius: "5px",
-                  padding: "3px 10px",
+                  padding: "4px 10px",
                   fontSize: "11px",
                   fontWeight: 600,
                   cursor: "pointer",
@@ -693,22 +737,29 @@ export default function App() {
               </button>
             </div>
 
-            {/* 기간 선택 세그먼트 버튼 (뒤로 이동) */}
-            <div style={{ display: "flex", gap: "4px", background: "#e4e6eb", padding: "3px", borderRadius: "8px" }}>
+            {/* 프리셋 버튼 */}
+            <div style={{
+              display: "flex",
+              gap: "2px",
+              background: "#e4e6eb",
+              padding: "2px",
+              borderRadius: "8px",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+            }}>
               {[7, 14, 30, 90].map((r) => (
                 <button
                   key={r}
                   onClick={() => setPeriod(r)}
                   style={{
-                    padding: "5px 12px",
+                    padding: "4px 10px",
                     borderRadius: "6px",
                     border: "none",
                     background: period === r ? "#fff" : "transparent",
-                    color: period === r ? "#222" : "#666",
+                    color: period === r ? "#222" : "#555",
                     fontWeight: period === r ? 600 : 400,
-                    fontSize: "12px",
+                    fontSize: "11px",
                     cursor: "pointer",
-                    boxShadow: period === r ? "0 2px 4px rgba(0,0,0,0.06)" : "none",
+                    boxShadow: period === r ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -717,15 +768,24 @@ export default function App() {
               ))}
             </div>
           </div>
-          <div style={{ fontSize: 13, color: "#777", fontWeight: 500 }}>
+          <div style={{ fontSize: "11px", color: "#888", fontWeight: 500, marginRight: "4px" }}>
             {formatKoreanUpdatedDate(updatedAt)}
           </div>
         </div>
       </div>
 
-      {/* ================= 동적 주간 요약 텍스트 바 ================= */}
+      {/* ================= 공통 KPI 카드 섹션 ================= */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+        <KpiCard label="총 알림톡 발송" value={summary.totalSend} change={summary.totalSendChange} icon="💬" showChange={startDateVal !== ""} userCount={summary.totalSendUser} />
+        <KpiCard label="제휴페이지 유입" value={summary.pageInflow} change={summary.pageInflowChange} icon="💻" showChange={startDateVal !== ""} />
+        <KpiCard label="CC 페이지 유입" value={b2cSummary.pageInflow} change={b2cSummary.pageInflowChange} icon="📱" showChange={startDateVal !== ""} />
+        <KpiCard label="상담 신청 수" value={b2cSummary.reqReserve} change={b2cSummary.reqReserveChange} icon="📞" showChange={startDateVal !== ""} />
+      </div>
+
+      {/* ================= 동적 주간 요약 텍스트 라인 ================= */}
       <SummaryBar
         totalSend={summary.totalSend}
+        totalSendUser={summary.totalSendUser}
         pageInflow={summary.pageInflow}
         homeSend={sendBySource.home}
         bannerClick={listingFunnel.bannerClick}
@@ -735,26 +795,18 @@ export default function App() {
         bannerDismissRate={summary.bannerDismissRate}
       />
 
-      {/* ================= 공통 KPI 카드 섹션 ================= */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-        <KpiCard label="[B2B] 총 알림톡 발송" value={summary.totalSend} change={summary.totalSendChange} />
-        <KpiCard label="[B2B] 제휴페이지 유입" value={summary.pageInflow} change={summary.pageInflowChange} />
-        <KpiCard label="[B2C] CC 페이지 유입" value={b2cSummary.pageInflow} change={b2cSummary.pageInflowChange} />
-        <KpiCard label="[B2C] 상담 신청 수" value={b2cSummary.reqReserve} change={b2cSummary.reqReserveChange} />
-      </div>
-
       {/* ================= 탭 메뉴 분리 레이아웃 ================= */}
-      <div style={{ display: "flex", borderBottom: "2px solid #e4e6eb", marginBottom: 20, gap: "8px" }}>
+      <div style={{ display: "flex", borderBottom: "2px solid #e4e6eb", marginBottom: 16, gap: "8px" }}>
         <button
           onClick={() => setActiveTab("b2b")}
           style={{
-            padding: "12px 20px",
+            padding: "10px 16px",
             background: "none",
             border: "none",
             borderBottom: activeTab === "b2b" ? `3px solid ${COLORS.blue}` : "3px solid transparent",
             color: activeTab === "b2b" ? COLORS.blue : "#666",
             fontWeight: activeTab === "b2b" ? 700 : 500,
-            fontSize: "14px",
+            fontSize: "13px",
             cursor: "pointer",
             transition: "all 0.2s ease",
             marginBottom: "-2px",
@@ -765,13 +817,13 @@ export default function App() {
         <button
           onClick={() => setActiveTab("b2c")}
           style={{
-            padding: "12px 20px",
+            padding: "10px 16px",
             background: "none",
             border: "none",
             borderBottom: activeTab === "b2c" ? `3px solid ${COLORS.blue}` : "3px solid transparent",
             color: activeTab === "b2c" ? COLORS.blue : "#666",
             fontWeight: activeTab === "b2c" ? 700 : 500,
-            fontSize: "14px",
+            fontSize: "13px",
             cursor: "pointer",
             transition: "all 0.2s ease",
             marginBottom: "-2px",
@@ -785,23 +837,27 @@ export default function App() {
       {activeTab === "b2b" ? (
         <div>
           {/* B2B 세부 KPI (전환율, 거부율) */}
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
             <KpiCard
               label="B2B 유입→발송 전환율"
               value={summary.conversionRate}
               unit="%"
               valueColor={summary.conversionRate >= 30 ? "#1D9E75" : "#E24B4A"}
+              icon="📈"
+              showChange={false}
             />
             <KpiCard
               label="B2B 매물배너 거부율"
               value={summary.bannerDismissRate}
               unit="%"
               valueColor={summary.bannerDismissRate >= 50 ? "#E24B4A" : "#1D9E75"}
+              icon="📉"
+              showChange={false}
             />
           </div>
 
           {/* 진입점별 효율 비교 카드 */}
-          <ChannelEfficiencyCard
+          <EntryPointEfficiencyCard
             pageInflow={summary.pageInflow}
             homeSend={sendBySource.home}
             bannerClick={listingFunnel.bannerClick}
@@ -811,38 +867,67 @@ export default function App() {
           />
 
           {/* B2B 주요 시각화 */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12, marginBottom: 16 }}>
-            <Card>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12, marginBottom: 12 }}>
+            <Card style={{ padding: "12px 16px" }}>
               <SectionTitle>진입점별 알림톡 발송 수</SectionTitle>
-              <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={sourceData} layout="vertical" margin={{ left: 10, right: 55, top: 5, bottom: 5 }}>
+              <ResponsiveContainer width="100%" height={120}>
+                <BarChart data={sourceData} layout="vertical" margin={{ left: 10, right: 110, top: 5, bottom: 5 }}>
                   <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 12, fill: "#888" }} />
-                  <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "건"]} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  <YAxis dataKey="name" type="category" width={70} tick={{ fontSize: 11, fill: "#666" }} />
+                  <Tooltip
+                    contentStyle={CUSTOM_TOOLTIP_STYLE}
+                    formatter={(value, name, props) => {
+                      const { userValue } = props.payload;
+                      return [
+                        userValue !== undefined
+                          ? `${value.toLocaleString()}건 (중개사 ${userValue.toLocaleString()}명)`
+                          : `${value.toLocaleString()}건`,
+                        "발송"
+                      ];
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={15}>
                     {sourceData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
-                    <LabelList dataKey="value" position="right" formatter={(v) => `${v}건`} style={{ fill: "#555", fontSize: 11, fontWeight: 600 }} />
+                    <LabelList content={renderBarLabel} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
 
-              <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 12, marginTop: 4 }}>
+              <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 10, marginTop: 4 }}>
                 <SectionTitle>일별 발송 추이</SectionTitle>
                 <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={trendData} margin={{ left: -20, right: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#aaa" }} interval="preserveStartEnd" />
-                    <YAxis tick={{ fontSize: 10, fill: "#aaa" }} />
-                    <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "건", "발송"]} />
-                    <Line type="monotone" dataKey="발송" stroke={COLORS.blue} strokeWidth={2} dot={<RenderCustomDot />} />
-                  </LineChart>
+                  <BarChart data={trendData} margin={{ left: -20, right: 10, top: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#888" }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                    <Tooltip
+                      contentStyle={CUSTOM_TOOLTIP_STYLE}
+                      formatter={(v, name, props) => {
+                        const { 중개사 } = props.payload;
+                        return [
+                          중개사 !== undefined
+                            ? `${v.toLocaleString()}건 (중개사 ${중개사.toLocaleString()}명)`
+                            : `${v.toLocaleString()}건`,
+                          "발송"
+                        ];
+                      }}
+                    />
+                    <Bar dataKey="발송" radius={[3, 3, 0, 0]}>
+                      {trendData.map((entry, idx) => (
+                        <Cell
+                          key={idx}
+                          fill={entry.isWeekend ? COLORS.coral : COLORS.blue}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </Card>
 
-            <Card>
+            <Card style={{ padding: "12px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <SectionTitle>제휴페이지 내 행동 분포</SectionTitle>
                 <button
@@ -867,9 +952,9 @@ export default function App() {
 
               {!pieCardCollapsed && (
                 <>
-                  <ResponsiveContainer width="100%" height={200}>
+                  <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
-                      <Pie data={pieData} cx="38%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={2}>
+                      <Pie data={pieData} cx="32%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={2}>
                         {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
                       </Pie>
                       <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "회"]} />
@@ -880,20 +965,31 @@ export default function App() {
                         iconType="circle"
                         iconSize={8}
                         formatter={renderPieLegend}
-                        wrapperStyle={{ right: 0, fontSize: 11 }}
+                        wrapperStyle={{ right: 0, fontSize: 10, lineHeight: "18px" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
 
-                  <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 12, marginTop: 12 }}>
+                  <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 10, marginTop: 10 }}>
                     <SectionTitle>시간대별 알림톡 발송 분포 (24시간)</SectionTitle>
-                    <ResponsiveContainer width="100%" height={150}>
+                    <ResponsiveContainer width="100%" height={130}>
                       <BarChart data={hourlyChartData} margin={{ left: -20, right: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                         <XAxis dataKey="hour" tick={{ fontSize: 9, fill: "#aaa" }} />
                         <YAxis tick={{ fontSize: 10, fill: "#aaa" }} />
-                        <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "건", "발송"]} />
-                        <Bar dataKey="발송" fill={COLORS.green} radius={[2, 2, 0, 0]} barSize={12} />
+                        <Tooltip
+                          contentStyle={CUSTOM_TOOLTIP_STYLE}
+                          formatter={(v, name, props) => {
+                            const { 중개사 } = props.payload;
+                            return [
+                              중개사 !== undefined
+                                ? `${v.toLocaleString()}건 (중개사 ${중개사.toLocaleString()}명)`
+                                : `${v.toLocaleString()}건`,
+                              "발송"
+                            ];
+                          }}
+                        />
+                        <Bar dataKey="발송" fill={COLORS.green} radius={[2, 2, 0, 0]} barSize={10} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -903,25 +999,25 @@ export default function App() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Card>
+            <Card style={{ padding: "12px 16px" }}>
               <Funnel
                 title="매물광고 배너 퍼널"
                 steps={[
-                  { name: "배너 클릭", value: listingFunnel.bannerClick, color: COLORS.lightBlue, textColor: "#185FA5" },
-                  { name: "모달 발송", value: listingFunnel.modalSend, color: COLORS.blue, textColor: "#fff" }
+                  { name: "배너 클릭", value: listingFunnel.bannerClick, color: COLORS.lightBlue },
+                  { name: "모달 발송", value: listingFunnel.modalSend, color: COLORS.blue }
                 ]}
                 footerText={`배너 거부(오늘 하루 보지 않기): ${listingFunnel.dismiss.toLocaleString()}명`}
                 footerColor="#E24B4A"
               />
             </Card>
 
-            <Card>
+            <Card style={{ padding: "12px 16px" }}>
               <Funnel
                 title="계약관리 퍼널"
                 steps={[
-                  { name: "발송 버튼 클릭", value: contractFunnel.sendBtn, color: "#9FE1CB", textColor: "#085041" },
-                  { name: "고객 선택 (다음)", value: contractFunnel.next, color: "#1D9E75", textColor: "#fff" },
-                  { name: "발송 완료", value: contractFunnel.complete, color: "#0F6E56", textColor: "#fff" }
+                  { name: "발송 버튼 클릭", value: contractFunnel.sendBtn, color: "#9FE1CB" },
+                  { name: "고객 선택 (다음)", value: contractFunnel.next, color: "#1D9E75" },
+                  { name: "발송 완료", value: contractFunnel.complete, color: "#0F6E56" }
                 ]}
                 footerText={`최종 전환율: ${contractFunnel.sendBtn ? Math.round((contractFunnel.complete / contractFunnel.sendBtn) * 1000) / 10 : 0}%`}
                 footerColor="#1D9E75"
@@ -932,21 +1028,21 @@ export default function App() {
       ) : (
         <div>
           {/* B2C 세부 KPI (쿠폰받기, 상담예약 전환율) */}
-          <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <KpiCard label="B2C 쿠폰 받기 전환 수" value={b2cSummary.couponGet} change={b2cSummary.couponGetChange} />
-            <KpiCard label="B2C 상담 예약 전환율" value={b2cSummary.conversionRate} unit="%" />
+          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+            <KpiCard label="B2C 쿠폰 받기 전환 수" value={b2cSummary.couponGet} change={b2cSummary.couponGetChange} icon="🎫" showChange={false} />
+            <KpiCard label="B2C 상담 예약 전환율" value={b2cSummary.conversionRate} unit="%" icon="📈" showChange={false} />
           </div>
 
           {/* B2C 주요 시각화 */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
             {/* 쿠폰 받기 퍼널 */}
-            <Card style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <Card style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "12px 16px" }}>
               <Funnel
                 title="쿠폰 받기 퍼널"
                 steps={[
-                  { name: "안심케어 알아보기", value: b2cFunnel.detail, color: "#B5D4F4", textColor: "#185FA5" },
-                  { name: "인증번호 전송", value: b2cFunnel.phone, color: "#5DA2E8", textColor: "#fff" },
-                  { name: "쿠폰 받기 (핵심전환)", value: b2cFunnel.get, color: COLORS.blue, textColor: "#fff" }
+                  { name: "안심케어 알아보기", value: b2cFunnel.detail, color: "#B5D4F4" },
+                  { name: "인증번호 전송", value: b2cFunnel.phone, color: "#5DA2E8" },
+                  { name: "쿠폰 받기 (핵심전환)", value: b2cFunnel.get, color: COLORS.blue }
                 ]}
                 footerText={`앱 설치 (AOS / iOS): ${b2cOther.androidDown || 0}건 / ${b2cOther.appleDown || 0}건`}
                 footerColor="#666"
@@ -954,7 +1050,7 @@ export default function App() {
             </Card>
 
             {/* 상담신청 경로 비교 */}
-            <Card>
+            <Card style={{ padding: "12px 16px" }}>
               <SectionTitle>상담신청 경로 비교</SectionTitle>
               <ResponsiveContainer width="100%" height={170}>
                 <BarChart data={b2cCounselingData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
@@ -965,14 +1061,14 @@ export default function App() {
                     {b2cCounselingData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
-                    <LabelList dataKey="value" position="top" formatter={(v) => `${v}건`} style={{ fill: "#555", fontSize: 11, fontWeight: 600 }} />
+                    <LabelList dataKey="value" position="top" formatter={(v) => `${v}건`} style={{ fill: "#333", fontSize: 11, fontWeight: 600 }} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </Card>
 
             {/* 전월세 vs 매매 탭 비율 */}
-            <Card>
+            <Card style={{ padding: "12px 16px" }}>
               <SectionTitle>전월세 vs 매매 탭 비율</SectionTitle>
               <ResponsiveContainer width="100%" height={170}>
                 <PieChart>
