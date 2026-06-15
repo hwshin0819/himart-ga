@@ -332,9 +332,9 @@ function Funnel({ title, steps, footerText, footerColor }) {
             dropRateText = "100%";
           }
           
-          const blockCount = Math.max(1, Math.round((step.value / maxVal) * 16));
+          const blockCount = Math.max(0, Math.min(16, Math.round((step.value / maxVal) * 16)));
           const fillBlocks = "█".repeat(blockCount);
-          const emptyBlocks = "░".repeat(16 - blockCount);
+          const emptyBlocks = "░".repeat(Math.max(0, 16 - blockCount));
           const blockStr = fillBlocks + emptyBlocks;
 
           return (
