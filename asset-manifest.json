@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.js": "/himart-ga/static/js/main.497ab1fc.js",
+    "main.js": "/himart-ga/static/js/main.112055f9.js",
     "index.html": "/himart-ga/index.html",
-    "main.497ab1fc.js.map": "/himart-ga/static/js/main.497ab1fc.js.map"
+    "main.112055f9.js.map": "/himart-ga/static/js/main.112055f9.js.map"
   },
   "entrypoints": [
-    "static/js/main.497ab1fc.js"
+    "static/js/main.112055f9.js"
   ]
 }
