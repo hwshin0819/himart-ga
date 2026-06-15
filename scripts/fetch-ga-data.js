@@ -152,6 +152,36 @@ function generateMockDataForPeriod(period) {
     }
   }
 
+  const dailyHourly = {};
+  for (const date of dates) {
+    dailyHourly[date] = {};
+    for (let h = 0; h < 24; h++) {
+      const hStr = String(h).padStart(2, '0');
+      dailyHourly[date][hStr] = 0;
+    }
+    if (date === '20260612') {
+      const distribution = {
+        "09": 5, "10": 8, "11": 10, "12": 3, "13": 4,
+        "14": 7, "15": 8, "16": 6, "17": 5, "18": 3
+      };
+      for (const [hStr, val] of Object.entries(distribution)) {
+        dailyHourly[date][hStr] = val;
+      }
+    } else {
+      const events = dailyEvents[date] || {};
+      const home = events[EVENTS.alimtalk_send_home] || 0;
+      const listing = events[EVENTS.alimtalk_send_listing] || 0;
+      const contract = events[EVENTS.alimtalk_send_contract] || 0;
+      let totalForDay = home + listing + contract;
+      while (totalForDay > 0) {
+        const h = Math.floor(Math.random() * 10) + 9;
+        const hStr = String(h).padStart(2, '0');
+        dailyHourly[date][hStr] = (dailyHourly[date][hStr] || 0) + 1;
+        totalForDay--;
+      }
+    }
+  }
+
   const totalSend = (c[EVENTS.alimtalk_send_home] || 0) + (c[EVENTS.alimtalk_send_listing] || 0) + (c[EVENTS.alimtalk_send_contract] || 0);
   const prevTotalSend = (p[EVENTS.alimtalk_send_home] || 0) + (p[EVENTS.alimtalk_send_listing] || 0) + (p[EVENTS.alimtalk_send_contract] || 0);
   const pageInflow = (c[EVENTS.scroll] || 0);
@@ -199,6 +229,7 @@ function generateMockDataForPeriod(period) {
     },
     dailyTrend,
     dailyEvents,
+    dailyHourly,
     // B2C Data
     b2cSummary: {
       pageInflow: b2cPageInflow,
@@ -348,6 +379,37 @@ async function fetchDailyTrend(startDate, endDate) {
   return daily;
 }
 
+async function fetchDailyHourlyTrend(startDate, endDate) {
+  const alimtalkEvents = [
+    EVENTS.alimtalk_send_home,
+    EVENTS.alimtalk_send_listing,
+    EVENTS.alimtalk_send_contract,
+  ];
+
+  const [response] = await client.runReport({
+    property: `properties/${propertyId}`,
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: 'date' }, { name: 'hour' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'eventName',
+        inListFilter: { values: alimtalkEvents },
+      },
+    },
+  });
+
+  const dailyHourly = {};
+  for (const row of response.rows || []) {
+    const date = row.dimensionValues[0].value;
+    const hour = row.dimensionValues[1].value;
+    const count = parseInt(row.metricValues[0].value);
+    if (!dailyHourly[date]) dailyHourly[date] = {};
+    dailyHourly[date][hour] = (dailyHourly[date][hour] || 0) + count;
+  }
+  return dailyHourly;
+}
+
 async function fetchDailyEvents(startDate, endDate) {
   const b2bNames = Object.values(EVENTS);
   const b2cNames = Object.values(B2C_EVENTS);
@@ -441,13 +503,14 @@ async function fetchDataForPeriod(N) {
   const prevStart = `${2 * N}daysAgo`;
   const prevEnd = `${N + 1}daysAgo`;
 
-  const [c, p, daily, b2cC, b2cP, dailyEvents] = await Promise.all([
+  const [c, p, daily, b2cC, b2cP, dailyEvents, dailyHourly] = await Promise.all([
     fetchEventCounts(currentStart, currentEnd),
     fetchEventCounts(prevStart, prevEnd),
     fetchDailyTrend(currentStart, currentEnd),
     fetchB2CEventCounts(currentStart, currentEnd),
     fetchB2CEventCounts(prevStart, prevEnd),
     fetchDailyEvents(prevStart, currentEnd),
+    fetchDailyHourlyTrend(prevStart, currentEnd),
   ]);
 
   const E = EVENTS;
@@ -502,6 +565,7 @@ async function fetchDataForPeriod(N) {
     },
     dailyTrend: daily,
     dailyEvents: dailyEvents,
+    dailyHourly: dailyHourly,
 
     // B2C Data
     b2cSummary: {
