@@ -53,86 +53,144 @@ if (credentialsJson && propertyId) {
 
 function generateMockDataForPeriod(period) {
   const N = parseInt(period);
-  const dailyTrend = {};
+  const dailyEvents = {};
   const today = new Date();
-  for (let i = N; i >= 0; i--) {
+  
+  const allEventNames = [
+    ...Object.values(EVENTS),
+    ...Object.values(B2C_EVENTS)
+  ];
+
+  // 이전 기간을 포함하여 충분한 일별 데이터(2 * N일) 생성
+  for (let i = N * 2; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const key = `${yyyy}${mm}${dd}`;
-    dailyTrend[key] = Math.floor(Math.random() * 30) + 10;
+    
+    dailyEvents[key] = {};
+    for (const name of allEventNames) {
+      let count = 0;
+      if (name === EVENTS.scroll || name === B2C_EVENTS.page_view) {
+        count = Math.floor(Math.random() * 80) + 30;
+      } else if (name === EVENTS.alimtalk_send_home || name === EVENTS.alimtalk_send_listing || name === EVENTS.alimtalk_send_contract) {
+        count = Math.floor(Math.random() * 15) + 3;
+      } else if (name === B2C_EVENTS.coupon_get || name === B2C_EVENTS.pop_reqReserveBtn) {
+        count = Math.floor(Math.random() * 8) + 1;
+      } else {
+        count = Math.floor(Math.random() * 20);
+      }
+      dailyEvents[key][name] = count;
+    }
   }
 
-  const totalSend = Math.floor(Math.random() * 200) + 100;
-  const pageInflow = Math.floor(Math.random() * 1000) + 800;
+  const c = {};
+  const p = {};
+  const dailyTrend = {};
+  
+  const dates = Object.keys(dailyEvents).sort();
+  const currentDates = dates.slice(dates.length - N - 1);
+  const prevDates = dates.slice(dates.length - 2 * N - 1, dates.length - N - 1);
 
-  const b2cPageInflow = Math.floor(Math.random() * 800) + 500;
-  const b2cCouponGet = Math.floor(b2cPageInflow * 0.25) + 10;
-  const b2cReqReserve = Math.floor(b2cPageInflow * 0.08) + 5;
+  for (const name of allEventNames) {
+    c[name] = 0;
+    p[name] = 0;
+  }
+
+  for (const date of currentDates) {
+    const events = dailyEvents[date] || {};
+    for (const [name, count] of Object.entries(events)) {
+      c[name] = (c[name] || 0) + count;
+    }
+    const sendCount = (events[EVENTS.alimtalk_send_home] || 0) + (events[EVENTS.alimtalk_send_listing] || 0) + (events[EVENTS.alimtalk_send_contract] || 0);
+    dailyTrend[date] = sendCount;
+  }
+
+  for (const date of prevDates) {
+    const events = dailyEvents[date] || {};
+    for (const [name, count] of Object.entries(events)) {
+      p[name] = (p[name] || 0) + count;
+    }
+  }
+
+  const totalSend = (c[EVENTS.alimtalk_send_home] || 0) + (c[EVENTS.alimtalk_send_listing] || 0) + (c[EVENTS.alimtalk_send_contract] || 0);
+  const prevTotalSend = (p[EVENTS.alimtalk_send_home] || 0) + (p[EVENTS.alimtalk_send_listing] || 0) + (p[EVENTS.alimtalk_send_contract] || 0);
+  const pageInflow = (c[EVENTS.scroll] || 0);
+  const prevPageInflow = (p[EVENTS.scroll] || 0);
+
+  const b2cPageInflow = c[B2C_EVENTS.page_view] || 0;
+  const prevB2cPageInflow = p[B2C_EVENTS.page_view] || 0;
+  const b2cCouponGet = c[B2C_EVENTS.coupon_get] || 0;
+  const prevB2cCouponGet = p[B2C_EVENTS.coupon_get] || 0;
+  const b2cReqReserve = c[B2C_EVENTS.pop_reqReserveBtn] || 0;
+  const prevB2cReqReserve = p[B2C_EVENTS.pop_reqReserveBtn] || 0;
 
   return {
     updatedAt: new Date().toISOString(),
     summary: {
       totalSend,
-      totalSendChange: Math.floor(Math.random() * 30) - 10,
+      totalSendChange: prevTotalSend ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100) : 0,
       pageInflow,
-      pageInflowChange: Math.floor(Math.random() * 20) - 5,
+      pageInflowChange: prevPageInflow ? Math.round(((pageInflow - prevPageInflow) / prevPageInflow) * 100) : 0,
       conversionRate: pageInflow ? Math.round((totalSend / pageInflow) * 1000) / 10 : 0,
-      bannerDismissRate: Math.round((Math.random() * 15 + 5) * 10) / 10,
+      bannerDismissRate: c[EVENTS.banner_detail]
+        ? Math.round((c[EVENTS.banner_dismiss] / (c[EVENTS.banner_detail] + c[EVENTS.banner_dismiss])) * 1000) / 10
+        : 0,
     },
     sendBySource: {
-      home: Math.floor(totalSend * 0.4),
-      listing: Math.floor(totalSend * 0.3),
-      contract: totalSend - Math.floor(totalSend * 0.4) - Math.floor(totalSend * 0.3),
+      home: c[EVENTS.alimtalk_send_home] || 0,
+      listing: c[EVENTS.alimtalk_send_listing] || 0,
+      contract: c[EVENTS.alimtalk_send_contract] || 0,
     },
     pageActions: {
-      alimtalk: Math.floor(totalSend * 0.4),
-      guide: Math.floor(pageInflow * 0.3),
-      external: Math.floor(pageInflow * 0.15),
-      store: Math.floor(pageInflow * 0.1),
+      alimtalk: c[EVENTS.alimtalk_send_home] || 0,
+      guide: (c[EVENTS.himart_guide] || 0) + (c[EVENTS.safecare_guide] || 0),
+      external: (c[EVENTS.safecare_external] || 0) + (c[EVENTS.himartcare_external] || 0),
+      store: c[EVENTS.store_view] || 0,
     },
     listingFunnel: {
-      bannerClick: Math.floor(totalSend * 1.5),
-      modalSend: Math.floor(totalSend * 0.3),
-      dismiss: Math.floor(totalSend * 0.1),
+      bannerClick: c[EVENTS.banner_detail] || 0,
+      modalSend: c[EVENTS.alimtalk_send_listing] || 0,
+      dismiss: c[EVENTS.banner_dismiss] || 0,
     },
     contractFunnel: {
-      sendBtn: Math.floor(totalSend * 2),
-      next: Math.floor(totalSend * 1.2),
-      complete: Math.floor(totalSend * 0.3),
+      sendBtn: c[EVENTS.contract_send_btn] || 0,
+      next: c[EVENTS.contract_next] || 0,
+      complete: c[EVENTS.alimtalk_send_contract] || 0,
     },
     dailyTrend,
+    dailyEvents,
     // B2C Data
     b2cSummary: {
       pageInflow: b2cPageInflow,
-      pageInflowChange: Math.floor(Math.random() * 25) - 5,
+      pageInflowChange: prevB2cPageInflow ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100) : 0,
       couponGet: b2cCouponGet,
-      couponGetChange: Math.floor(Math.random() * 30) - 5,
+      couponGetChange: prevB2cCouponGet ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100) : 0,
       reqReserve: b2cReqReserve,
-      reqReserveChange: Math.floor(Math.random() * 20) - 10,
+      reqReserveChange: prevB2cReqReserve ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100) : 0,
       conversionRate: b2cPageInflow ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10 : 0,
     },
     b2cCounselingPaths: {
-      gnb: Math.floor(b2cReqReserve * 0.5),
-      mid: Math.floor(b2cReqReserve * 0.3),
-      low: b2cReqReserve - Math.floor(b2cReqReserve * 0.5) - Math.floor(b2cReqReserve * 0.3),
+      gnb: c[B2C_EVENTS.gnb_reqReserveBtn] || 0,
+      mid: c[B2C_EVENTS.mid_reqReserveBtn] || 0,
+      low: c[B2C_EVENTS.low_reqReserveBtn] || 0,
     },
     b2cTabs: {
-      lease: Math.floor(b2cPageInflow * 0.6),
-      buy: b2cPageInflow - Math.floor(b2cPageInflow * 0.6),
+      lease: c[B2C_EVENTS.lease_tab] || 0,
+      buy: c[B2C_EVENTS.buy_tab] || 0,
     },
     b2cFunnel: {
-      detail: Math.floor(b2cPageInflow * 0.5),
-      phone: Math.floor(b2cPageInflow * 0.35),
+      detail: c[B2C_EVENTS.coupon_detail] || 0,
+      phone: c[B2C_EVENTS.coupon_phone] || 0,
       get: b2cCouponGet,
     },
     b2cOther: {
-      gnbCoupon: Math.floor(b2cPageInflow * 0.1),
-      buyFee: Math.floor(b2cPageInflow * 0.05),
-      androidDown: Math.floor(Math.random() * 20) + 5,
-      appleDown: Math.floor(Math.random() * 15) + 3,
+      gnbCoupon: c[B2C_EVENTS.gnb_couponBtn] || 0,
+      buyFee: c[B2C_EVENTS.buy_fee] || 0,
+      androidDown: c[B2C_EVENTS.android_down] || 0,
+      appleDown: c[B2C_EVENTS.apple_down] || 0,
     }
   };
 }
@@ -253,18 +311,106 @@ async function fetchDailyTrend(startDate, endDate) {
   return daily;
 }
 
+async function fetchDailyEvents(startDate, endDate) {
+  const b2bNames = Object.values(EVENTS);
+  const b2cNames = Object.values(B2C_EVENTS);
+  
+  const [b2bResponse] = await client.runReport({
+    property: `properties/${propertyId}`,
+    dateRanges: [{ startDate, endDate }],
+    dimensions: [{ name: 'date' }, { name: 'eventName' }],
+    metrics: [{ name: 'eventCount' }],
+    dimensionFilter: {
+      filter: {
+        fieldName: 'eventName',
+        inListFilter: { values: b2bNames },
+      },
+    },
+  });
+
+  let b2cRows = [];
+  try {
+    const [b2cResponse] = await client.runReport({
+      property: `properties/${propertyId}`,
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: 'date' }, { name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        andGroup: {
+          expressions: [
+            {
+              filter: {
+                fieldName: 'eventName',
+                inListFilter: { values: b2cNames },
+              },
+            },
+            {
+              filter: {
+                fieldName: 'customEvent:service_name',
+                stringFilter: {
+                  matchType: 'EXACT',
+                  value: 'himart',
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+    b2cRows = b2cResponse.rows || [];
+  } catch (error) {
+    console.warn(`Warning: B2C daily query with service_name filter failed. Retrying without filter...`, error.message);
+    try {
+      const [b2cResponse] = await client.runReport({
+        property: `properties/${propertyId}`,
+        dateRanges: [{ startDate, endDate }],
+        dimensions: [{ name: 'date' }, { name: 'eventName' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: {
+          filter: {
+            fieldName: 'eventName',
+            inListFilter: { values: b2cNames },
+          },
+        },
+      });
+      b2cRows = b2cResponse.rows || [];
+    } catch (fallbackError) {
+      console.error('Error: Fallback B2C daily query failed.', fallbackError.message);
+    }
+  }
+
+  const daily = {};
+  for (const row of b2bResponse.rows || []) {
+    const date = row.dimensionValues[0].value;
+    const eventName = row.dimensionValues[1].value;
+    const count = parseInt(row.metricValues[0].value);
+    if (!daily[date]) daily[date] = {};
+    daily[date][eventName] = (daily[date][eventName] || 0) + count;
+  }
+  for (const row of b2cRows) {
+    const date = row.dimensionValues[0].value;
+    const eventName = row.dimensionValues[1].value;
+    const count = parseInt(row.metricValues[0].value);
+    if (!daily[date]) daily[date] = {};
+    daily[date][eventName] = (daily[date][eventName] || 0) + count;
+  }
+
+  return daily;
+}
+
 async function fetchDataForPeriod(N) {
   const currentStart = `${N}daysAgo`;
   const currentEnd = 'today';
   const prevStart = `${2 * N}daysAgo`;
   const prevEnd = `${N + 1}daysAgo`;
 
-  const [c, p, daily, b2cC, b2cP] = await Promise.all([
+  const [c, p, daily, b2cC, b2cP, dailyEvents] = await Promise.all([
     fetchEventCounts(currentStart, currentEnd),
     fetchEventCounts(prevStart, prevEnd),
     fetchDailyTrend(currentStart, currentEnd),
     fetchB2CEventCounts(currentStart, currentEnd),
     fetchB2CEventCounts(prevStart, prevEnd),
+    fetchDailyEvents(prevStart, currentEnd),
   ]);
 
   const E = EVENTS;
@@ -318,6 +464,7 @@ async function fetchDataForPeriod(N) {
       complete: c[E.alimtalk_send_contract] || 0,
     },
     dailyTrend: daily,
+    dailyEvents: dailyEvents,
 
     // B2C Data
     b2cSummary: {
