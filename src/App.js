@@ -76,6 +76,21 @@ const getWeekday = (dateStr) => {
   return WEEKDAYS[d.getDay()];
 };
 
+// Given a day-range N, find the closest preset (7, 14, 30, 90)
+function findClosestPreset(daysDiff) {
+  const presets = [7, 14, 30, 90];
+  let closest = presets[0];
+  let minDiff = Math.abs(daysDiff - presets[0]);
+  for (const p of presets) {
+    const diff = Math.abs(daysDiff - p);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = p;
+    }
+  }
+  return closest;
+}
+
 function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
   const dailyEvents = rawFetchedData.dailyEvents || {};
   const dailyHourly = rawFetchedData.dailyHourly || {};
@@ -117,11 +132,16 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
   }
 
   for (const [dateStr, events] of Object.entries(dailyEvents)) {
+    // Exclude June 12 and earlier
+    if (dateStr < "20260613") continue;
     if (dateStr >= startYmd && dateStr <= endYmd) {
       for (const [name, val] of Object.entries(events)) {
         c[name] = (c[name] || 0) + val;
       }
-      const sendCount = (events[EVENTS.alimtalk_send_home] || 0) + (events[EVENTS.alimtalk_send_listing] || 0) + (events[EVENTS.alimtalk_send_contract] || 0);
+      const sendCount =
+        (events[EVENTS.alimtalk_send_home] || 0) +
+        (events[EVENTS.alimtalk_send_listing] || 0) +
+        (events[EVENTS.alimtalk_send_contract] || 0);
       dailyTrend[dateStr] = sendCount;
     } else if (dateStr >= prevStartYmd && dateStr <= prevEndYmd) {
       for (const [name, val] of Object.entries(events)) {
@@ -131,6 +151,7 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
   }
 
   for (const [dateStr, hours] of Object.entries(dailyHourly)) {
+    if (dateStr < "20260613") continue;
     if (dateStr >= startYmd && dateStr <= endYmd) {
       for (const [hourStr, val] of Object.entries(hours)) {
         hourlyTrend[hourStr] = (hourlyTrend[hourStr] || 0) + val;
@@ -138,11 +159,20 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
     }
   }
 
-  const totalSend = (c[EVENTS.alimtalk_send_home] || 0) + (c[EVENTS.alimtalk_send_listing] || 0) + (c[EVENTS.alimtalk_send_contract] || 0);
-  const totalSendUser = (c[EVENTS.alimtalk_send_home + "_user"] || 0) + (c[EVENTS.alimtalk_send_listing + "_user"] || 0) + (c[EVENTS.alimtalk_send_contract + "_user"] || 0);
-  const prevTotalSend = (p[EVENTS.alimtalk_send_home] || 0) + (p[EVENTS.alimtalk_send_listing] || 0) + (p[EVENTS.alimtalk_send_contract] || 0);
-  const pageInflow = (c[EVENTS.scroll] || 0);
-  const prevPageInflow = (p[EVENTS.scroll] || 0);
+  const totalSend =
+    (c[EVENTS.alimtalk_send_home] || 0) +
+    (c[EVENTS.alimtalk_send_listing] || 0) +
+    (c[EVENTS.alimtalk_send_contract] || 0);
+  const totalSendUser =
+    (c[EVENTS.alimtalk_send_home + "_user"] || 0) +
+    (c[EVENTS.alimtalk_send_listing + "_user"] || 0) +
+    (c[EVENTS.alimtalk_send_contract + "_user"] || 0);
+  const prevTotalSend =
+    (p[EVENTS.alimtalk_send_home] || 0) +
+    (p[EVENTS.alimtalk_send_listing] || 0) +
+    (p[EVENTS.alimtalk_send_contract] || 0);
+  const pageInflow = c[EVENTS.scroll] || 0;
+  const prevPageInflow = p[EVENTS.scroll] || 0;
 
   const b2cPageInflow = c[B2C_EVENTS.page_view] || 0;
   const prevB2cPageInflow = p[B2C_EVENTS.page_view] || 0;
@@ -156,12 +186,20 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
     summary: {
       totalSend,
       totalSendUser,
-      totalSendChange: prevTotalSend ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100) : 0,
+      totalSendChange: prevTotalSend
+        ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100)
+        : 0,
       pageInflow,
-      pageInflowChange: prevPageInflow ? Math.round(((pageInflow - prevPageInflow) / prevPageInflow) * 100) : 0,
-      conversionRate: pageInflow ? Math.round((totalSend / pageInflow) * 1000) / 10 : 0,
+      pageInflowChange: prevPageInflow
+        ? Math.round(((pageInflow - prevPageInflow) / prevPageInflow) * 100)
+        : 0,
+      conversionRate: pageInflow
+        ? Math.round((totalSend / pageInflow) * 1000) / 10
+        : 0,
       bannerDismissRate: c[EVENTS.banner_detail]
-        ? Math.round((c[EVENTS.banner_dismiss] / (c[EVENTS.banner_detail] + c[EVENTS.banner_dismiss])) * 1000) / 10
+        ? Math.round(
+            (c[EVENTS.banner_dismiss] / (c[EVENTS.banner_detail] + c[EVENTS.banner_dismiss])) * 1000
+          ) / 10
         : 0,
     },
     sendBySource: {
@@ -196,12 +234,20 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
     // B2C Data
     b2cSummary: {
       pageInflow: b2cPageInflow,
-      pageInflowChange: prevB2cPageInflow ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100) : 0,
+      pageInflowChange: prevB2cPageInflow
+        ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100)
+        : 0,
       couponGet: b2cCouponGet,
-      couponGetChange: prevB2cCouponGet ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100) : 0,
+      couponGetChange: prevB2cCouponGet
+        ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100)
+        : 0,
       reqReserve: b2cReqReserve,
-      reqReserveChange: prevB2cReqReserve ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100) : 0,
-      conversionRate: b2cPageInflow ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10 : 0,
+      reqReserveChange: prevB2cReqReserve
+        ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100)
+        : 0,
+      conversionRate: b2cPageInflow
+        ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10
+        : 0,
     },
     b2cCounselingPaths: {
       gnb: c[B2C_EVENTS.gnb_reqReserveBtn] || 0,
@@ -222,7 +268,7 @@ function aggregateDataForRange(rawFetchedData, startYmd, endYmd) {
       buyFee: c[B2C_EVENTS.buy_fee] || 0,
       androidDown: c[B2C_EVENTS.android_down] || 0,
       appleDown: c[B2C_EVENTS.apple_down] || 0,
-    }
+    },
   };
 }
 
@@ -331,7 +377,7 @@ function Funnel({ title, steps, footerText, footerColor }) {
           } else {
             dropRateText = "100%";
           }
-          
+
           const blockCount = Math.max(0, Math.min(16, Math.round((step.value / maxVal) * 16)));
           const fillBlocks = "█".repeat(blockCount);
           const emptyBlocks = "░".repeat(Math.max(0, 16 - blockCount));
@@ -350,7 +396,7 @@ function Funnel({ title, steps, footerText, footerColor }) {
               <div style={{ width: "95px", fontWeight: 600, color: "#555" }}>
                 {step.name}
               </div>
-              
+
               <div style={{
                 flex: 1,
                 textAlign: "left",
@@ -363,11 +409,11 @@ function Funnel({ title, steps, footerText, footerColor }) {
               }}>
                 {blockStr}
               </div>
-              
+
               <div style={{ width: "55px", textAlign: "right", fontWeight: 600, color: "#333" }}>
-                {step.value.toLocaleString()}명
+                {step.value.toLocaleString()}건
               </div>
-              
+
               <div style={{
                 width: "80px",
                 textAlign: "right",
@@ -392,14 +438,14 @@ function Funnel({ title, steps, footerText, footerColor }) {
 
 function SummaryBar({ totalSend, totalSendUser, pageInflow, homeSend, bannerClick, listingSend, sendBtn, contractSend, bannerDismissRate }) {
   const channels = [
-    { name: "계약관리", inflow: sendBtn, send: contractSend },
+    { name: "매물광고", inflow: bannerClick, send: listingSend },
     { name: "제휴페이지", inflow: pageInflow, send: homeSend },
-    { name: "매물광고", inflow: bannerClick, send: listingSend }
+    { name: "계약관리", inflow: sendBtn, send: contractSend }
   ];
-  
-  let bestChannelName = "계약관리";
+
+  let bestChannelName = "매물광고";
   let bestRate = 0;
-  
+
   channels.forEach(ch => {
     const rate = ch.inflow ? (ch.send / ch.inflow) * 100 : 0;
     if (rate > bestRate) {
@@ -410,7 +456,7 @@ function SummaryBar({ totalSend, totalSendUser, pageInflow, homeSend, bannerClic
 
   const dismissStatus = bannerDismissRate >= 50 ? "주의" : "양호";
   const dismissColor = bannerDismissRate >= 50 ? "#E24B4A" : "#1D9E75";
-  
+
   return (
     <div style={{
       fontSize: "12px",
@@ -425,9 +471,9 @@ function SummaryBar({ totalSend, totalSendUser, pageInflow, homeSend, bannerClic
     }}>
       <span style={{ color: "#378ADD" }}>ℹ️</span>
       <span>
-        선택 기간 총 <strong style={{ color: "#222" }}>{totalSend.toLocaleString()}건{totalSendUser ? ` (중개사 ${totalSendUser.toLocaleString()}명)` : ""}</strong> 발송 · 
-        <strong style={{ color: "#222" }}> {bestChannelName}</strong> 경로 효율 1위 ({bestRate.toFixed(1)}%) · 
-        배너 거부율 
+        선택 기간 총 <strong style={{ color: "#222" }}>{totalSend.toLocaleString()}건{totalSendUser ? ` (중개사 ${totalSendUser.toLocaleString()}명)` : ""}</strong> 발송 ·
+        <strong style={{ color: "#222" }}> {bestChannelName}</strong> 경로 효율 1위 ({bestRate.toFixed(1)}%) ·
+        배너 거부율
         <span style={{
           color: dismissColor,
           fontWeight: 700,
@@ -440,28 +486,34 @@ function SummaryBar({ totalSend, totalSendUser, pageInflow, homeSend, bannerClic
   );
 }
 
+// UI FIX 2: Vertical list layout for entry point efficiency
+// Order: 매물광고 / 제휴페이지 / 계약관리 (UI FIX 1)
 function EntryPointEfficiencyCard({ pageInflow, homeSend, bannerClick, listingSend, sendBtn, contractSend }) {
+  // UI FIX 1: Order is 매물광고 / 제휴페이지 / 계약관리
   const list = [
     {
       name: "매물광고",
       exposed: bannerClick,
       sent: listingSend,
-      label: "exposed",
+      exposedLabel: "노출",   // UI FIX 4: Korean
+      sentLabel: "발송",
       color: COLORS.coral
-    },
-    {
-      name: "계약관리",
-      exposed: sendBtn,
-      sent: contractSend,
-      label: "clicked",
-      color: COLORS.blue
     },
     {
       name: "제휴페이지",
       exposed: pageInflow,
       sent: homeSend,
-      label: "visited",
+      exposedLabel: "방문",   // UI FIX 4: Korean
+      sentLabel: "발송",
       color: COLORS.green
+    },
+    {
+      name: "계약관리",
+      exposed: sendBtn,
+      sent: contractSend,
+      exposedLabel: "클릭",   // UI FIX 4: Korean
+      sentLabel: "발송",
+      color: COLORS.blue
     }
   ].map(item => {
     const rawRate = item.exposed ? (item.sent / item.exposed) * 100 : 0;
@@ -469,50 +521,95 @@ function EntryPointEfficiencyCard({ pageInflow, homeSend, bannerClick, listingSe
     return { ...item, rate };
   });
 
+  const ranked = [...list].sort((a, b) => b.rate - a.rate);
+  const getRank = (name) => {
+    const idx = ranked.findIndex(item => item.name === name);
+    return idx + 1;
+  };
+
   return (
     <Card style={{ marginBottom: "16px" }}>
       <SectionTitle>진입점별 효율 비교 (전환율)</SectionTitle>
-      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "8px" }}>
-        {list.map((item, idx) => (
-          <div key={idx} style={{
-            flex: 1, minWidth: "180px", background: "#f8f9fa", padding: "12px",
-            borderRadius: "6px", border: "1px solid #eee"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "#333" }}>{item.name}</span>
-              <span style={{ fontSize: "14px", fontWeight: 700, color: item.color }}>{item.rate.toFixed(1)}%</span>
-            </div>
-            <div style={{ fontSize: "11px", color: "#666", marginBottom: "6px" }}>
-              {item.exposed.toLocaleString()} {item.label} → {item.sent.toLocaleString()} sent
-            </div>
-            <div style={{ background: "#e4e6eb", height: "6px", borderRadius: "3px", overflow: "hidden" }}>
+      {/* UI FIX 2: Vertical list format */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+        {list.map((item, idx) => {
+          const rank = getRank(item.name);
+          return (
+            <div key={idx} style={{
+              display: "flex",
+              alignItems: "center",
+              background: "#f8f9fa",
+              padding: "10px 14px",
+              borderRadius: "6px",
+              boxShadow: "inset 0 1px 2px rgba(0,0,0,0.02)",
+              gap: "10px",
+            }}>
+              {/* 순위 */}
               <div style={{
-                background: item.color, height: "100%", width: `${item.rate}%`,
-                transition: "width 0.5s ease-in-out"
-              }} />
+                width: "42px",
+                fontWeight: 700,
+                fontSize: "13px",
+                color: rank === 1 ? "#1D9E75" : "#666",
+                display: "flex",
+                alignItems: "center",
+                gap: "2px",
+                flexShrink: 0,
+              }}>
+                {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"} {rank}위
+              </div>
+
+              {/* 진입점명 */}
+              <div style={{ width: "72px", fontWeight: 700, color: "#333", fontSize: "13px", flexShrink: 0 }}>
+                {item.name}
+              </div>
+
+              {/* 노출수 → 발송수 (UI FIX 4: all Korean) */}
+              <div style={{ width: "170px", color: "#555", fontSize: "12px", flexShrink: 0 }}>
+                <span style={{ color: "#888" }}>{item.exposedLabel}</span> {item.exposed.toLocaleString()}
+                <span style={{ margin: "0 4px", color: "#bbb" }}>→</span>
+                <span style={{ color: "#888" }}>발송</span> {item.sent.toLocaleString()}
+              </div>
+
+              {/* 전환율 */}
+              <div style={{ width: "52px", fontWeight: 700, color: item.color, fontSize: "14px", textAlign: "right", flexShrink: 0 }}>
+                {item.rate.toFixed(1)}%
+              </div>
+
+              {/* progress bar */}
+              <div style={{ flex: 1, background: "#e4e6eb", height: "8px", borderRadius: "4px", overflow: "hidden" }}>
+                <div style={{
+                  background: item.color, height: "100%", width: `${item.rate}%`,
+                  transition: "width 0.5s ease-in-out"
+                }} />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Card>
   );
 }
 
 export default function App() {
-  const [period, setPeriod] = useState(30);
+  // BUG 1: Default state = null (no preset selected), show "날짜를 선택해주세요"
+  const [period, setPeriod] = useState(null);
   const [rawFetchedData, setRawFetchedData] = useState(null);
   const [displayData, setDisplayData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [startDateVal, setStartDateVal] = useState("");
   const [endDateVal, setEndDateVal] = useState("");
   const [activeTab, setActiveTab] = useState("b2b");
-  const [pieCardCollapsed, setPieCardCollapsed] = useState(false);
+  // Track if custom range is applied
+  const [isCustomRange, setIsCustomRange] = useState(false);
 
+  // BUG 1: Load data-{N}d.json when preset button clicked
   useEffect(() => {
+    if (period === null) return;
     setLoading(true);
-    fetch(process.env.PUBLIC_URL + `/data-${period}.json`)
+    setIsCustomRange(false);
+    fetch(process.env.PUBLIC_URL + `/data-${period}d.json`)
       .then((r) => r.json())
       .then((d) => {
         setRawFetchedData(d);
@@ -520,51 +617,183 @@ export default function App() {
         setError(null);
       })
       .catch(() => {
-        fetch(process.env.PUBLIC_URL + "/data.json")
-          .then((r) => r.json())
-          .then((d) => {
-            setRawFetchedData(d);
-            setLoading(false);
-            setError(null);
-          })
-          .catch(() => {
-            setError("데이터를 불러올 수 없습니다.");
-            setLoading(false);
-          });
+        setError("데이터를 불러올 수 없습니다.");
+        setLoading(false);
       });
   }, [period]);
 
+  // When raw data changes (preset clicked), aggregate full range
   useEffect(() => {
-    if (rawFetchedData) {
-      setStartDateVal("");
-      setEndDateVal("");
-      const dates = Object.keys(rawFetchedData.dailyEvents || {}).sort();
-      if (dates.length > 0) {
-        const start = dates[0];
-        const end = dates[dates.length - 1];
-        const aggregated = aggregateDataForRange(rawFetchedData, start, end);
-        setDisplayData(aggregated);
-      } else {
-        setDisplayData(rawFetchedData);
-      }
+    if (!rawFetchedData) return;
+    if (isCustomRange) return; // Don't re-aggregate if custom range is active
+    setStartDateVal("");
+    setEndDateVal("");
+    const dates = Object.keys(rawFetchedData.dailyEvents || {})
+      .filter(d => d >= '20260613')
+      .sort();
+    if (dates.length > 0) {
+      const start = dates[0];
+      const end = dates[dates.length - 1];
+      const aggregated = aggregateDataForRange(rawFetchedData, start, end);
+      setDisplayData(aggregated);
+    } else {
+      setDisplayData(rawFetchedData);
     }
-  }, [rawFetchedData]);
+  }, [rawFetchedData, isCustomRange]);
 
-  const applyCustomRange = () => {
-    if (!startDateVal || !endDateVal || !rawFetchedData) return;
+  // BUG 1: Custom range: find closest preset, load that JSON, then aggregate
+  const applyCustomRange = async () => {
+    if (!startDateVal || !endDateVal) return;
     const startYmd = formatDateInputToYmd(startDateVal);
     const endYmd = formatDateInputToYmd(endDateVal);
     if (startYmd > endYmd) {
       alert("시작일은 종료일보다 빨라야 합니다.");
       return;
     }
-    const aggregated = aggregateDataForRange(
-      rawFetchedData,
-      startYmd,
-      endYmd
-    );
-    setDisplayData(aggregated);
+    if (startYmd < '20260613' || endYmd < '20260613') {
+      alert("데이터는 2026년 6월 13일부터 조회 가능합니다.");
+      return;
+    }
+
+    // Calculate day diff and find closest preset
+    const startDate = parseDate(startYmd);
+    const endDate = parseDate(endYmd);
+    const daysDiff = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    const closestPreset = findClosestPreset(daysDiff);
+
+    setLoading(true);
+    try {
+      const res = await fetch(process.env.PUBLIC_URL + `/data-${closestPreset}d.json`);
+      const data = await res.json();
+      setRawFetchedData(data);
+      setIsCustomRange(true);
+      const aggregated = aggregateDataForRange(data, startYmd, endYmd);
+      setDisplayData(aggregated);
+      setLoading(false);
+      setError(null);
+    } catch {
+      setError("데이터를 불러올 수 없습니다.");
+      setLoading(false);
+    }
   };
+
+  // BUG 1: Default state - show placeholder when no period selected
+  if (period === null && !loading) {
+    return (
+      <div style={{
+        background: "#f5f6f8", minHeight: "100vh", padding: "16px 24px",
+        fontFamily: "'Pretendard', -apple-system, sans-serif"
+      }}>
+        {/* 대시보드 헤더 */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: "24px", flexWrap: "wrap", gap: "12px"
+        }}>
+          <div style={{ fontSize: "20px", fontWeight: 700, color: "#222" }}>
+            🛒 하이마트 제휴 대시보드
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              {/* 달력 날짜 피커 */}
+              <div style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                background: "#fff", padding: "4px 8px", borderRadius: "8px",
+                border: "1px solid #ddd", boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+              }}>
+                <input
+                  type={startDateVal ? "date" : "text"}
+                  placeholder="시작일 (날짜를 선택해주세요)"
+                  value={startDateVal}
+                  min="2026-06-13"
+                  onFocus={(e) => e.target.type = "date"}
+                  onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
+                  onChange={(e) => setStartDateVal(e.target.value)}
+                  style={{ border: "none", outline: "none", fontSize: "11px", color: "#333", cursor: "pointer", width: "135px" }}
+                />
+                <span style={{ fontSize: "11px", color: "#999" }}>~</span>
+                <input
+                  type={endDateVal ? "date" : "text"}
+                  placeholder="종료일 (날짜를 선택해주세요)"
+                  value={endDateVal}
+                  min="2026-06-13"
+                  onFocus={(e) => e.target.type = "date"}
+                  onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
+                  onChange={(e) => setEndDateVal(e.target.value)}
+                  style={{ border: "none", outline: "none", fontSize: "11px", color: "#333", cursor: "pointer", width: "135px" }}
+                />
+                <button
+                  onClick={applyCustomRange}
+                  style={{
+                    background: COLORS.blue, color: "#fff", border: "none",
+                    borderRadius: "5px", padding: "4px 10px", fontSize: "11px",
+                    fontWeight: 600, cursor: "pointer", transition: "background 0.2s",
+                  }}
+                  onMouseOver={(e) => e.target.style.background = "#2a70b8"}
+                  onMouseOut={(e) => e.target.style.background = COLORS.blue}
+                >
+                  적용
+                </button>
+              </div>
+              {/* 프리셋 버튼 */}
+              <div style={{
+                display: "flex", gap: "2px", background: "#e4e6eb",
+                padding: "2px", borderRadius: "8px", boxShadow: "0 1px 2px rgba(0,0,0,0.05)"
+              }}>
+                {[7, 14, 30, 90].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setPeriod(r)}
+                    style={{
+                      padding: "4px 10px", borderRadius: "6px", border: "none",
+                      background: "transparent", color: "#555",
+                      fontWeight: 400, fontSize: "11px", cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {r}일
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 날짜 선택 안내 메시지 */}
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          height: "60vh", gap: "16px"
+        }}>
+          <div style={{ fontSize: "48px" }}>📅</div>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: "#444" }}>
+            날짜를 선택해주세요
+          </div>
+          <div style={{ fontSize: "13px", color: "#888", textAlign: "center", lineHeight: "1.6" }}>
+            우측 상단의 <strong>7일 / 14일 / 30일 / 90일</strong> 버튼을 클릭하거나<br />
+            직접 날짜 범위를 선택한 후 <strong>적용</strong> 버튼을 눌러주세요.<br />
+            데이터 조회 시작일: 2026년 6월 13일
+          </div>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            {[7, 14, 30, 90].map((r) => (
+              <button
+                key={r}
+                onClick={() => setPeriod(r)}
+                style={{
+                  padding: "10px 20px", borderRadius: "8px", border: "2px solid " + COLORS.blue,
+                  background: "#fff", color: COLORS.blue,
+                  fontWeight: 700, fontSize: "14px", cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = COLORS.blue; e.currentTarget.style.color = "#fff"; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = COLORS.blue; }}
+              >
+                {r}일
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontFamily: "'Pretendard', -apple-system, sans-serif" }}>
@@ -594,11 +823,11 @@ export default function App() {
     b2cOther = { gnbCoupon: 0, buyFee: 0, androidDown: 0, appleDown: 0 }
   } = displayData;
 
-  // B2B Chart Data
+  // B2B Chart Data - UI FIX 1: Order 매물광고 / 제휴페이지 / 계약관리
   const sourceData = [
-    { name: "계약관리", value: sendBySource.contract, userValue: sendBySource.contract_user, fill: COLORS.blue },
-    { name: "제휴페이지", value: sendBySource.home, userValue: sendBySource.home_user, fill: COLORS.green },
     { name: "매물광고", value: sendBySource.listing, userValue: sendBySource.listing_user, fill: COLORS.coral },
+    { name: "제휴페이지", value: sendBySource.home, userValue: sendBySource.home_user, fill: COLORS.green },
+    { name: "계약관리", value: sendBySource.contract, userValue: sendBySource.contract_user, fill: COLORS.blue },
   ];
 
   const renderBarLabel = (props) => {
@@ -613,6 +842,7 @@ export default function App() {
     );
   };
 
+  // UI FIX 3: No toggle - always show 제휴페이지 내 행동 분포
   const pieData = [
     { name: "알림톡 발송", value: pageActions.alimtalk },
     { name: "가이드 열람", value: pageActions.guide },
@@ -629,16 +859,17 @@ export default function App() {
 
   const trendData = Object.entries(dailyTrend || {})
     .sort(([a], [b]) => a.localeCompare(b))
+    .filter(([date]) => date >= '20260613') // BUG 3: exclude June 12
     .map(([date, count]) => {
       const weekday = getWeekday(date);
       const isWeekend = weekday === "토" || weekday === "일";
-      
+
       const eventsForDay = displayData.dailyEvents?.[date] || {};
       const homeUser = eventsForDay[EVENTS.alimtalk_send_home + "_user"] || 0;
       const listingUser = eventsForDay[EVENTS.alimtalk_send_listing + "_user"] || 0;
       const contractUser = eventsForDay[EVENTS.alimtalk_send_contract + "_user"] || 0;
       const totalUser = homeUser + listingUser + contractUser;
-      
+
       return {
         dateStr: date,
         date: `${date.slice(4, 6)}/${date.slice(6, 8)} (${weekday})`,
@@ -659,7 +890,7 @@ export default function App() {
 
   // B2C Chart Data
   const b2cCounselingData = [
-    { name: "GNB", value: b2cCounselingPaths.gnb, fill: COLORS.blue },
+    { name: "상단", value: b2cCounselingPaths.gnb, fill: COLORS.blue },
     { name: "중반", value: b2cCounselingPaths.mid, fill: COLORS.green },
     { name: "하단", value: b2cCounselingPaths.low, fill: COLORS.coral },
   ];
@@ -702,6 +933,7 @@ export default function App() {
                 type={startDateVal ? "date" : "text"}
                 placeholder="시작일 (날짜를 선택해주세요)"
                 value={startDateVal}
+                min="2026-06-13"
                 onFocus={(e) => e.target.type = "date"}
                 onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
                 onChange={(e) => setStartDateVal(e.target.value)}
@@ -712,6 +944,7 @@ export default function App() {
                 type={endDateVal ? "date" : "text"}
                 placeholder="종료일 (날짜를 선택해주세요)"
                 value={endDateVal}
+                min="2026-06-13"
                 onFocus={(e) => e.target.type = "date"}
                 onBlur={(e) => { if (!e.target.value) e.target.type = "text"; }}
                 onChange={(e) => setEndDateVal(e.target.value)}
@@ -749,17 +982,17 @@ export default function App() {
               {[7, 14, 30, 90].map((r) => (
                 <button
                   key={r}
-                  onClick={() => setPeriod(r)}
+                  onClick={() => { setIsCustomRange(false); setPeriod(r); }}
                   style={{
                     padding: "4px 10px",
                     borderRadius: "6px",
                     border: "none",
-                    background: period === r ? "#fff" : "transparent",
-                    color: period === r ? "#222" : "#555",
-                    fontWeight: period === r ? 600 : 400,
+                    background: period === r && !isCustomRange ? "#fff" : "transparent",
+                    color: period === r && !isCustomRange ? "#222" : "#555",
+                    fontWeight: period === r && !isCustomRange ? 600 : 400,
                     fontSize: "11px",
                     cursor: "pointer",
-                    boxShadow: period === r ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                    boxShadow: period === r && !isCustomRange ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -776,10 +1009,10 @@ export default function App() {
 
       {/* ================= 공통 KPI 카드 섹션 ================= */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-        <KpiCard label="총 알림톡 발송" value={summary.totalSend} change={summary.totalSendChange} icon="💬" showChange={startDateVal !== ""} userCount={summary.totalSendUser} />
-        <KpiCard label="제휴페이지 유입" value={summary.pageInflow} change={summary.pageInflowChange} icon="💻" showChange={startDateVal !== ""} />
-        <KpiCard label="CC 페이지 유입" value={b2cSummary.pageInflow} change={b2cSummary.pageInflowChange} icon="📱" showChange={startDateVal !== ""} />
-        <KpiCard label="상담 신청 수" value={b2cSummary.reqReserve} change={b2cSummary.reqReserveChange} icon="📞" showChange={startDateVal !== ""} />
+        <KpiCard label="총 알림톡 발송" value={summary.totalSend} change={summary.totalSendChange} icon="💬" showChange={isCustomRange} userCount={summary.totalSendUser} />
+        <KpiCard label="제휴페이지 유입" value={summary.pageInflow} change={summary.pageInflowChange} icon="💻" showChange={isCustomRange} />
+        <KpiCard label="고객 페이지 유입" value={b2cSummary.pageInflow} change={b2cSummary.pageInflowChange} icon="📱" showChange={isCustomRange} />
+        <KpiCard label="상담 신청 수" value={b2cSummary.reqReserve} change={b2cSummary.reqReserveChange} icon="📞" showChange={isCustomRange} />
       </div>
 
       {/* ================= 동적 주간 요약 텍스트 라인 ================= */}
@@ -839,7 +1072,7 @@ export default function App() {
           {/* B2B 세부 KPI (전환율, 거부율) */}
           <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
             <KpiCard
-              label="B2B 유입→발송 전환율"
+              label="유입 → 발송 전환율"
               value={summary.conversionRate}
               unit="%"
               valueColor={summary.conversionRate >= 30 ? "#1D9E75" : "#E24B4A"}
@@ -847,7 +1080,7 @@ export default function App() {
               showChange={false}
             />
             <KpiCard
-              label="B2B 매물배너 거부율"
+              label="매물배너 거부율"
               value={summary.bannerDismissRate}
               unit="%"
               valueColor={summary.bannerDismissRate >= 50 ? "#E24B4A" : "#1D9E75"}
@@ -856,7 +1089,7 @@ export default function App() {
             />
           </div>
 
-          {/* 진입점별 효율 비교 카드 */}
+          {/* 진입점별 효율 비교 카드 (UI FIX 2: vertical list) */}
           <EntryPointEfficiencyCard
             pageInflow={summary.pageInflow}
             homeSend={sendBySource.home}
@@ -869,6 +1102,7 @@ export default function App() {
           {/* B2B 주요 시각화 */}
           <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 12, marginBottom: 12 }}>
             <Card style={{ padding: "12px 16px" }}>
+              {/* UI FIX 1: 매물광고 / 제휴페이지 / 계약관리 순서 */}
               <SectionTitle>진입점별 알림톡 발송 수</SectionTitle>
               <ResponsiveContainer width="100%" height={120}>
                 <BarChart data={sourceData} layout="vertical" margin={{ left: 10, right: 110, top: 5, bottom: 5 }}>
@@ -928,73 +1162,50 @@ export default function App() {
             </Card>
 
             <Card style={{ padding: "12px 16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <SectionTitle>제휴페이지 내 행동 분포</SectionTitle>
-                <button
-                  onClick={() => setPieCardCollapsed(!pieCardCollapsed)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: COLORS.blue,
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    transition: "background 0.2s"
-                  }}
-                  onMouseOver={(e) => e.target.style.background = "#f0f4f8"}
-                  onMouseOut={(e) => e.target.style.background = "none"}
-                >
-                  {pieCardCollapsed ? "펼치기 ▲" : "접기 ▼"}
-                </button>
+              {/* UI FIX 3: No toggle - always show */}
+              <SectionTitle>제휴페이지 내 행동 분포</SectionTitle>
+
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={pieData} cx="32%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={2}>
+                    {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "회"]} />
+                  <Legend
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={renderPieLegend}
+                    wrapperStyle={{ right: 0, fontSize: 10, lineHeight: "18px" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+
+              <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 10, marginTop: 10 }}>
+                <SectionTitle>시간대별 알림톡 발송 분포 (24시간)</SectionTitle>
+                <ResponsiveContainer width="100%" height={130}>
+                  <BarChart data={hourlyChartData} margin={{ left: -20, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="hour" tick={{ fontSize: 9, fill: "#aaa" }} />
+                    <YAxis tick={{ fontSize: 10, fill: "#aaa" }} />
+                    <Tooltip
+                      contentStyle={CUSTOM_TOOLTIP_STYLE}
+                      formatter={(v, name, props) => {
+                        const { 중개사 } = props.payload;
+                        return [
+                          중개사 !== undefined
+                            ? `${v.toLocaleString()}건 (중개사 ${중개사.toLocaleString()}명)`
+                            : `${v.toLocaleString()}건`,
+                          "발송"
+                        ];
+                      }}
+                    />
+                    <Bar dataKey="발송" fill={COLORS.green} radius={[2, 2, 0, 0]} barSize={10} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-
-              {!pieCardCollapsed && (
-                <>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={pieData} cx="32%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" paddingAngle={2}>
-                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
-                      </Pie>
-                      <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "회"]} />
-                      <Legend
-                        layout="vertical"
-                        align="right"
-                        verticalAlign="middle"
-                        iconType="circle"
-                        iconSize={8}
-                        formatter={renderPieLegend}
-                        wrapperStyle={{ right: 0, fontSize: 10, lineHeight: "18px" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-
-                  <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 10, marginTop: 10 }}>
-                    <SectionTitle>시간대별 알림톡 발송 분포 (24시간)</SectionTitle>
-                    <ResponsiveContainer width="100%" height={130}>
-                      <BarChart data={hourlyChartData} margin={{ left: -20, right: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                        <XAxis dataKey="hour" tick={{ fontSize: 9, fill: "#aaa" }} />
-                        <YAxis tick={{ fontSize: 10, fill: "#aaa" }} />
-                        <Tooltip
-                          contentStyle={CUSTOM_TOOLTIP_STYLE}
-                          formatter={(v, name, props) => {
-                            const { 중개사 } = props.payload;
-                            return [
-                              중개사 !== undefined
-                                ? `${v.toLocaleString()}건 (중개사 ${중개사.toLocaleString()}명)`
-                                : `${v.toLocaleString()}건`,
-                              "발송"
-                            ];
-                          }}
-                        />
-                        <Bar dataKey="발송" fill={COLORS.green} radius={[2, 2, 0, 0]} barSize={10} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </>
-              )}
             </Card>
           </div>
 
@@ -1003,10 +1214,10 @@ export default function App() {
               <Funnel
                 title="매물광고 배너 퍼널"
                 steps={[
-                  { name: "배너 클릭", value: listingFunnel.bannerClick, color: COLORS.lightBlue },
-                  { name: "모달 발송", value: listingFunnel.modalSend, color: COLORS.blue }
+                  { name: "배너 노출", value: listingFunnel.bannerClick, color: COLORS.lightBlue },
+                  { name: "알림톡 발송", value: listingFunnel.modalSend, color: COLORS.blue }
                 ]}
-                footerText={`배너 거부(오늘 하루 보지 않기): ${listingFunnel.dismiss.toLocaleString()}명`}
+                footerText={`배너 거부(오늘 하루 보지 않기): ${listingFunnel.dismiss.toLocaleString()}건`}
                 footerColor="#E24B4A"
               />
             </Card>
@@ -1015,8 +1226,8 @@ export default function App() {
               <Funnel
                 title="계약관리 퍼널"
                 steps={[
-                  { name: "발송 버튼 클릭", value: contractFunnel.sendBtn, color: "#9FE1CB" },
-                  { name: "고객 선택 (다음)", value: contractFunnel.next, color: "#1D9E75" },
+                  { name: "발송버튼 클릭", value: contractFunnel.sendBtn, color: "#9FE1CB" },
+                  { name: "고객선택 (다음)", value: contractFunnel.next, color: "#1D9E75" },
                   { name: "발송 완료", value: contractFunnel.complete, color: "#0F6E56" }
                 ]}
                 footerText={`최종 전환율: ${contractFunnel.sendBtn ? Math.round((contractFunnel.complete / contractFunnel.sendBtn) * 1000) / 10 : 0}%`}
@@ -1029,8 +1240,8 @@ export default function App() {
         <div>
           {/* B2C 세부 KPI (쿠폰받기, 상담예약 전환율) */}
           <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <KpiCard label="B2C 쿠폰 받기 전환 수" value={b2cSummary.couponGet} change={b2cSummary.couponGetChange} icon="🎫" showChange={false} />
-            <KpiCard label="B2C 상담 예약 전환율" value={b2cSummary.conversionRate} unit="%" icon="📈" showChange={false} />
+            <KpiCard label="쿠폰 받기 전환 수" value={b2cSummary.couponGet} change={b2cSummary.couponGetChange} icon="🎫" showChange={false} />
+            <KpiCard label="상담 예약 전환율" value={b2cSummary.conversionRate} unit="%" icon="📈" showChange={false} />
           </div>
 
           {/* B2C 주요 시각화 */}
@@ -1044,7 +1255,7 @@ export default function App() {
                   { name: "인증번호 전송", value: b2cFunnel.phone, color: "#5DA2E8" },
                   { name: "쿠폰 받기 (핵심전환)", value: b2cFunnel.get, color: COLORS.blue }
                 ]}
-                footerText={`앱 설치 (AOS / iOS): ${b2cOther.androidDown || 0}건 / ${b2cOther.appleDown || 0}건`}
+                footerText={`앱 설치 (안드로이드 / iOS): ${(b2cOther.androidDown || 0).toLocaleString()}건 / ${(b2cOther.appleDown || 0).toLocaleString()}건`}
                 footerColor="#666"
               />
             </Card>

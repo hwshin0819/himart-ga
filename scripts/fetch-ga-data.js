@@ -41,6 +41,9 @@ const B2C_EVENTS = {
   pop_reqReserveBtn: '상담예약_상담신청',
 };
 
+// GA start date: June 13, 2026
+const DATA_START_DATE = '20260613';
+
 let client;
 let clientEmail = 'Unknown';
 if (credentialsJson && propertyId) {
@@ -62,17 +65,21 @@ function calculateUserCount(count) {
   return Math.max(1, Math.min(count, users));
 }
 
+/**
+ * Generate fully random mock data (no hardcoded dates).
+ * All data starts from DATA_START_DATE (June 13, 2026).
+ */
 function generateMockDataForPeriod(period) {
   const N = parseInt(period);
   const dailyEvents = {};
   const today = new Date();
-  
+
   const allEventNames = [
     ...Object.values(EVENTS),
     ...Object.values(B2C_EVENTS)
   ];
 
-  // 이전 기간을 포함하여 충분한 일별 데이터(2 * N일) 생성
+  // Generate 2*N days of history for previous-period comparison
   for (let i = N * 2; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
@@ -80,146 +87,90 @@ function generateMockDataForPeriod(period) {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const key = `${yyyy}${mm}${dd}`;
-    
+
+    // Skip any dates before June 13, 2026 (data is incomplete before this)
+    if (key < DATA_START_DATE) continue;
+
     dailyEvents[key] = {};
+
     for (const name of allEventNames) {
       let count = 0;
-      if (key === '20260612') {
-        if (name === EVENTS.alimtalk_send_home) {
-          count = 36;
-        } else if (name === EVENTS.alimtalk_send_listing) {
-          count = 15;
-        } else if (name === EVENTS.alimtalk_send_contract) {
-          count = 8;
-        } else if (name === EVENTS.scroll) {
-          count = 120; // B2B page inflow
-        } else if (name === EVENTS.banner_detail) {
-          count = 30;
-        } else if (name === EVENTS.banner_dismiss) {
-          count = 12; // 12 / (30 + 12) = 28.5% dismiss rate
-        } else if (name === EVENTS.contract_send_btn) {
-          count = 20;
-        } else if (name === EVENTS.contract_next) {
-          count = 15;
-        } else if (name === B2C_EVENTS.page_view) {
-          count = 200; // B2C page inflow
-        } else if (name === B2C_EVENTS.coupon_get) {
-          count = 25;
-        } else if (name === B2C_EVENTS.pop_reqReserveBtn) {
-          count = 12; // 12 / 200 = 6% conversion rate
-        } else if (name === B2C_EVENTS.gnb_reqReserveBtn) {
-          count = 4;
-        } else if (name === B2C_EVENTS.mid_reqReserveBtn) {
-          count = 5;
-        } else if (name === B2C_EVENTS.low_reqReserveBtn) {
-          count = 3;
-        } else {
-          count = Math.floor(Math.random() * 5);
-        }
-      } else if (key === '20260613') {
-        if (name === EVENTS.alimtalk_send_home) {
-          count = 6;
-        } else if (name === EVENTS.alimtalk_send_listing) {
-          count = 4;
-        } else if (name === EVENTS.alimtalk_send_contract) {
-          count = 2;
-        } else if (name === EVENTS.scroll) {
-          count = 100;
-        } else if (name === EVENTS.banner_detail) {
-          count = 20;
-        } else if (name === EVENTS.banner_dismiss) {
-          count = 5;
-        } else if (name === EVENTS.contract_send_btn) {
-          count = 15;
-        } else if (name === EVENTS.contract_next) {
-          count = 8;
-        } else if (name === B2C_EVENTS.page_view) {
-          count = 150;
-        } else if (name === B2C_EVENTS.coupon_get) {
-          count = 10;
-        } else if (name === B2C_EVENTS.pop_reqReserveBtn) {
-          count = 8;
-        } else {
-          count = Math.floor(Math.random() * 5);
-        }
-      } else {
-        if (name === EVENTS.scroll || name === B2C_EVENTS.page_view) {
-          count = Math.floor(Math.random() * 80) + 100; // 제휴/B2C 유입 충분히 크게
-        } else if (name === EVENTS.alimtalk_send_home || name === EVENTS.alimtalk_send_listing || name === EVENTS.alimtalk_send_contract) {
-          count = Math.floor(Math.random() * 10) + 5;
-        } else if (name === B2C_EVENTS.coupon_get || name === B2C_EVENTS.pop_reqReserveBtn) {
-          count = Math.floor(Math.random() * 8) + 1;
-        } else {
-          count = Math.floor(Math.random() * 20);
-        }
-      }
-      dailyEvents[key][name] = count;
 
-      // Generate userCount
-      let userCount = 0;
-      if (key === '20260612') {
-        if (name === EVENTS.alimtalk_send_home) userCount = 25;
-        else if (name === EVENTS.alimtalk_send_listing) userCount = 10;
-        else if (name === EVENTS.alimtalk_send_contract) userCount = 6;
-        else userCount = calculateUserCount(count);
-      } else if (key === '20260613') {
-        if (name === EVENTS.alimtalk_send_home) userCount = 5;
-        else if (name === EVENTS.alimtalk_send_listing) userCount = 3;
-        else if (name === EVENTS.alimtalk_send_contract) userCount = 2;
-        else userCount = calculateUserCount(count);
+      // Random counts - no hardcoded date-specific values
+      if (name === EVENTS.scroll || name === B2C_EVENTS.page_view) {
+        count = Math.floor(Math.random() * 80) + 100;
+      } else if (
+        name === EVENTS.alimtalk_send_home ||
+        name === EVENTS.alimtalk_send_listing
+      ) {
+        count = Math.floor(Math.random() * 10) + 5;
+      } else if (name === EVENTS.alimtalk_send_contract) {
+        // 계약관리 알림톡 발송은 낮을 수 있음 (실제 GA4에서도 적은 수치)
+        count = Math.floor(Math.random() * 5);
+      } else if (
+        name === B2C_EVENTS.coupon_get ||
+        name === B2C_EVENTS.pop_reqReserveBtn
+      ) {
+        count = Math.floor(Math.random() * 8) + 1;
       } else {
-        userCount = calculateUserCount(count);
+        count = Math.floor(Math.random() * 20);
       }
-      dailyEvents[key][name + "_user"] = userCount;
+
+      dailyEvents[key][name] = count;
+      dailyEvents[key][name + '_user'] = calculateUserCount(count);
     }
 
-    // 데이터 정합성 보정 (Mock 데이터)
-    if (key !== '20260612' && key !== '20260613') {
-      const homeSend = dailyEvents[key][EVENTS.alimtalk_send_home] || 0;
-      const listingSend = dailyEvents[key][EVENTS.alimtalk_send_listing] || 0;
-      const contractSend = dailyEvents[key][EVENTS.alimtalk_send_contract] || 0;
+    // 데이터 정합성 보정: 퍼널 순서 유지
+    const homeSend = dailyEvents[key][EVENTS.alimtalk_send_home] || 0;
+    const listingSend = dailyEvents[key][EVENTS.alimtalk_send_listing] || 0;
+    const contractSend = dailyEvents[key][EVENTS.alimtalk_send_contract] || 0;
 
-      // 1. 매물 배너 클릭(노출)은 모달 발송보다 항상 크게
-      if ((dailyEvents[key][EVENTS.banner_detail] || 0) <= listingSend) {
-        dailyEvents[key][EVENTS.banner_detail] = listingSend + Math.floor(Math.random() * 20) + 20;
-      }
-      
-      // 2. 계약관리 발송버튼(1단계) > 계약관리 다음(2단계) > 계약관리 발송완료(3단계)
-      if ((dailyEvents[key][EVENTS.contract_next] || 0) <= contractSend) {
-        dailyEvents[key][EVENTS.contract_next] = contractSend + Math.floor(Math.random() * 5) + 3;
-      }
-      if ((dailyEvents[key][EVENTS.contract_send_btn] || 0) <= dailyEvents[key][EVENTS.contract_next]) {
-        dailyEvents[key][EVENTS.contract_send_btn] = dailyEvents[key][EVENTS.contract_next] + Math.floor(Math.random() * 5) + 5;
-      }
+    // 1. 매물 배너 클릭(노출)은 모달 발송보다 항상 크게
+    if ((dailyEvents[key][EVENTS.banner_detail] || 0) <= listingSend) {
+      dailyEvents[key][EVENTS.banner_detail] = listingSend + Math.floor(Math.random() * 20) + 20;
+      dailyEvents[key][EVENTS.banner_detail + '_user'] = calculateUserCount(dailyEvents[key][EVENTS.banner_detail]);
+    }
 
-      // 3. 제휴페이지 방문(스크롤)은 제휴페이지 알림톡 발송보다 크게
-      if ((dailyEvents[key][EVENTS.scroll] || 0) <= homeSend) {
-        dailyEvents[key][EVENTS.scroll] = homeSend + Math.floor(Math.random() * 30) + 50;
-      }
+    // 2. 계약관리: 발송버튼(1단계) > 다음(2단계) > 발송완료(3단계)
+    if ((dailyEvents[key][EVENTS.contract_next] || 0) <= contractSend) {
+      dailyEvents[key][EVENTS.contract_next] = contractSend + Math.floor(Math.random() * 5) + 3;
+      dailyEvents[key][EVENTS.contract_next + '_user'] = calculateUserCount(dailyEvents[key][EVENTS.contract_next]);
+    }
+    if ((dailyEvents[key][EVENTS.contract_send_btn] || 0) <= dailyEvents[key][EVENTS.contract_next]) {
+      dailyEvents[key][EVENTS.contract_send_btn] = dailyEvents[key][EVENTS.contract_next] + Math.floor(Math.random() * 5) + 5;
+      dailyEvents[key][EVENTS.contract_send_btn + '_user'] = calculateUserCount(dailyEvents[key][EVENTS.contract_send_btn]);
+    }
 
-      // 4. B2C 쿠폰 안심케어알아보기(1단계) > 인증번호전송(2단계) > 쿠폰받기(3단계)
-      const cGet = dailyEvents[key][B2C_EVENTS.coupon_get] || 0;
-      if ((dailyEvents[key][B2C_EVENTS.coupon_phone] || 0) <= cGet) {
-        dailyEvents[key][B2C_EVENTS.coupon_phone] = cGet + Math.floor(Math.random() * 5) + 5;
-      }
-      if ((dailyEvents[key][B2C_EVENTS.coupon_detail] || 0) <= dailyEvents[key][B2C_EVENTS.coupon_phone]) {
-        dailyEvents[key][B2C_EVENTS.coupon_detail] = dailyEvents[key][B2C_EVENTS.coupon_phone] + Math.floor(Math.random() * 10) + 10;
-      }
+    // 3. 제휴페이지 방문(스크롤)은 알림톡 발송보다 크게
+    if ((dailyEvents[key][EVENTS.scroll] || 0) <= homeSend) {
+      dailyEvents[key][EVENTS.scroll] = homeSend + Math.floor(Math.random() * 30) + 50;
+      dailyEvents[key][EVENTS.scroll + '_user'] = calculateUserCount(dailyEvents[key][EVENTS.scroll]);
+    }
+
+    // 4. B2C 쿠폰 퍼널: 알아보기 > 인증번호전송 > 쿠폰받기
+    const cGet = dailyEvents[key][B2C_EVENTS.coupon_get] || 0;
+    if ((dailyEvents[key][B2C_EVENTS.coupon_phone] || 0) <= cGet) {
+      dailyEvents[key][B2C_EVENTS.coupon_phone] = cGet + Math.floor(Math.random() * 5) + 5;
+      dailyEvents[key][B2C_EVENTS.coupon_phone + '_user'] = calculateUserCount(dailyEvents[key][B2C_EVENTS.coupon_phone]);
+    }
+    if ((dailyEvents[key][B2C_EVENTS.coupon_detail] || 0) <= dailyEvents[key][B2C_EVENTS.coupon_phone]) {
+      dailyEvents[key][B2C_EVENTS.coupon_detail] = dailyEvents[key][B2C_EVENTS.coupon_phone] + Math.floor(Math.random() * 10) + 10;
+      dailyEvents[key][B2C_EVENTS.coupon_detail + '_user'] = calculateUserCount(dailyEvents[key][B2C_EVENTS.coupon_detail]);
     }
   }
 
   const c = {};
   const p = {};
   const dailyTrend = {};
-  
+
   const dates = Object.keys(dailyEvents).sort();
-  const currentDates = dates.slice(dates.length - N - 1);
-  const prevDates = dates.slice(dates.length - 2 * N - 1, dates.length - N - 1);
+  const currentDates = dates.slice(Math.max(0, dates.length - N));
+  const prevDates = dates.slice(Math.max(0, dates.length - N * 2), Math.max(0, dates.length - N));
 
   const allNamesWithUsers = [];
   for (const name of allEventNames) {
     allNamesWithUsers.push(name);
-    allNamesWithUsers.push(name + "_user");
+    allNamesWithUsers.push(name + '_user');
   }
 
   for (const name of allNamesWithUsers) {
@@ -232,7 +183,10 @@ function generateMockDataForPeriod(period) {
     for (const [name, count] of Object.entries(events)) {
       c[name] = (c[name] || 0) + count;
     }
-    const sendCount = (events[EVENTS.alimtalk_send_home] || 0) + (events[EVENTS.alimtalk_send_listing] || 0) + (events[EVENTS.alimtalk_send_contract] || 0);
+    const sendCount =
+      (events[EVENTS.alimtalk_send_home] || 0) +
+      (events[EVENTS.alimtalk_send_listing] || 0) +
+      (events[EVENTS.alimtalk_send_contract] || 0);
     dailyTrend[date] = sendCount;
   }
 
@@ -249,50 +203,37 @@ function generateMockDataForPeriod(period) {
     for (let h = 0; h < 24; h++) {
       const hStr = String(h).padStart(2, '0');
       dailyHourly[date][hStr] = 0;
-      dailyHourly[date][hStr + "_user"] = 0;
+      dailyHourly[date][hStr + '_user'] = 0;
     }
-    if (date === '20260612') {
-      const distribution = {
-        "09": 5, "10": 8, "11": 10, "12": 3, "13": 4,
-        "14": 7, "15": 8, "16": 6, "17": 5, "18": 3
-      };
-      for (const [hStr, val] of Object.entries(distribution)) {
-        dailyHourly[date][hStr] = val;
-        dailyHourly[date][hStr + "_user"] = calculateUserCount(val);
-      }
-    } else if (date === '20260613') {
-      const distribution = {
-        "09": 1, "10": 2, "11": 2, "12": 1, "13": 1,
-        "14": 2, "15": 1, "16": 1, "17": 1
-      };
-      for (const [hStr, val] of Object.entries(distribution)) {
-        dailyHourly[date][hStr] = val;
-        dailyHourly[date][hStr + "_user"] = calculateUserCount(val);
-      }
-    } else {
-      const events = dailyEvents[date] || {};
-      const home = events[EVENTS.alimtalk_send_home] || 0;
-      const listing = events[EVENTS.alimtalk_send_listing] || 0;
-      const contract = events[EVENTS.alimtalk_send_contract] || 0;
-      let totalForDay = home + listing + contract;
-      while (totalForDay > 0) {
-        const h = Math.floor(Math.random() * 10) + 9;
-        const hStr = String(h).padStart(2, '0');
-        dailyHourly[date][hStr] = (dailyHourly[date][hStr] || 0) + 1;
-        totalForDay--;
-      }
-      for (let h = 0; h < 24; h++) {
-        const hStr = String(h).padStart(2, '0');
-        const count = dailyHourly[date][hStr];
-        dailyHourly[date][hStr + "_user"] = calculateUserCount(count);
-      }
+    // Distribute daily alimtalk sends across business hours (9~18)
+    const events = dailyEvents[date] || {};
+    const home = events[EVENTS.alimtalk_send_home] || 0;
+    const listing = events[EVENTS.alimtalk_send_listing] || 0;
+    const contract = events[EVENTS.alimtalk_send_contract] || 0;
+    let totalForDay = home + listing + contract;
+    while (totalForDay > 0) {
+      const h = Math.floor(Math.random() * 10) + 9;
+      const hStr = String(h).padStart(2, '0');
+      dailyHourly[date][hStr] = (dailyHourly[date][hStr] || 0) + 1;
+      totalForDay--;
+    }
+    for (let h = 0; h < 24; h++) {
+      const hStr = String(h).padStart(2, '0');
+      const cnt = dailyHourly[date][hStr];
+      dailyHourly[date][hStr + '_user'] = calculateUserCount(cnt);
     }
   }
 
-  const totalSend = (c[EVENTS.alimtalk_send_home] || 0) + (c[EVENTS.alimtalk_send_listing] || 0) + (c[EVENTS.alimtalk_send_contract] || 0);
-  const prevTotalSend = (p[EVENTS.alimtalk_send_home] || 0) + (p[EVENTS.alimtalk_send_listing] || 0) + (p[EVENTS.alimtalk_send_contract] || 0);
-  const pageInflow = (c[EVENTS.scroll] || 0);
-  const prevPageInflow = (p[EVENTS.scroll] || 0);
+  const totalSend =
+    (c[EVENTS.alimtalk_send_home] || 0) +
+    (c[EVENTS.alimtalk_send_listing] || 0) +
+    (c[EVENTS.alimtalk_send_contract] || 0);
+  const prevTotalSend =
+    (p[EVENTS.alimtalk_send_home] || 0) +
+    (p[EVENTS.alimtalk_send_listing] || 0) +
+    (p[EVENTS.alimtalk_send_contract] || 0);
+  const pageInflow = c[EVENTS.scroll] || 0;
+  const prevPageInflow = p[EVENTS.scroll] || 0;
 
   const b2cPageInflow = c[B2C_EVENTS.page_view] || 0;
   const prevB2cPageInflow = p[B2C_EVENTS.page_view] || 0;
@@ -303,6 +244,7 @@ function generateMockDataForPeriod(period) {
 
   return {
     updatedAt: new Date().toISOString(),
+    period: N,
     summary: {
       totalSend,
       totalSendChange: prevTotalSend ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100) : 0,
@@ -315,11 +257,11 @@ function generateMockDataForPeriod(period) {
     },
     sendBySource: {
       home: c[EVENTS.alimtalk_send_home] || 0,
-      home_user: c[EVENTS.alimtalk_send_home + "_user"] || 0,
+      home_user: c[EVENTS.alimtalk_send_home + '_user'] || 0,
       listing: c[EVENTS.alimtalk_send_listing] || 0,
-      listing_user: c[EVENTS.alimtalk_send_listing + "_user"] || 0,
+      listing_user: c[EVENTS.alimtalk_send_listing + '_user'] || 0,
       contract: c[EVENTS.alimtalk_send_contract] || 0,
-      contract_user: c[EVENTS.alimtalk_send_contract + "_user"] || 0,
+      contract_user: c[EVENTS.alimtalk_send_contract + '_user'] || 0,
     },
     pageActions: {
       alimtalk: c[EVENTS.alimtalk_send_home] || 0,
@@ -343,12 +285,20 @@ function generateMockDataForPeriod(period) {
     // B2C Data
     b2cSummary: {
       pageInflow: b2cPageInflow,
-      pageInflowChange: prevB2cPageInflow ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100) : 0,
+      pageInflowChange: prevB2cPageInflow
+        ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100)
+        : 0,
       couponGet: b2cCouponGet,
-      couponGetChange: prevB2cCouponGet ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100) : 0,
+      couponGetChange: prevB2cCouponGet
+        ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100)
+        : 0,
       reqReserve: b2cReqReserve,
-      reqReserveChange: prevB2cReqReserve ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100) : 0,
-      conversionRate: b2cPageInflow ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10 : 0,
+      reqReserveChange: prevB2cReqReserve
+        ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100)
+        : 0,
+      conversionRate: b2cPageInflow
+        ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10
+        : 0,
     },
     b2cCounselingPaths: {
       gnb: c[B2C_EVENTS.gnb_reqReserveBtn] || 0,
@@ -369,7 +319,7 @@ function generateMockDataForPeriod(period) {
       buyFee: c[B2C_EVENTS.buy_fee] || 0,
       androidDown: c[B2C_EVENTS.android_down] || 0,
       appleDown: c[B2C_EVENTS.apple_down] || 0,
-    }
+    },
   };
 }
 
@@ -392,7 +342,7 @@ async function fetchEventCounts(startDate, endDate) {
   for (const row of response.rows || []) {
     const eventName = row.dimensionValues[0].value;
     counts[eventName] = parseInt(row.metricValues[0].value);
-    counts[eventName + "_user"] = parseInt(row.metricValues[1].value);
+    counts[eventName + '_user'] = parseInt(row.metricValues[1].value);
   }
   return counts;
 }
@@ -432,11 +382,14 @@ async function fetchB2CEventCounts(startDate, endDate) {
     for (const row of response.rows || []) {
       const eventName = row.dimensionValues[0].value;
       counts[eventName] = parseInt(row.metricValues[0].value);
-      counts[eventName + "_user"] = parseInt(row.metricValues[1].value);
+      counts[eventName + '_user'] = parseInt(row.metricValues[1].value);
     }
     return counts;
   } catch (error) {
-    console.warn(`Warning: B2C query with service_name filter failed for [${startDate} ~ ${endDate}]. Retrying without filter...`, error.message);
+    console.warn(
+      `Warning: B2C query with service_name filter failed for [${startDate} ~ ${endDate}]. Retrying without filter...`,
+      error.message
+    );
     try {
       const [response] = await client.runReport({
         property: `properties/${propertyId}`,
@@ -455,11 +408,14 @@ async function fetchB2CEventCounts(startDate, endDate) {
       for (const row of response.rows || []) {
         const eventName = row.dimensionValues[0].value;
         counts[eventName] = parseInt(row.metricValues[0].value);
-        counts[eventName + "_user"] = parseInt(row.metricValues[1].value);
+        counts[eventName + '_user'] = parseInt(row.metricValues[1].value);
       }
       return counts;
     } catch (fallbackError) {
-      console.error('Error: Fallback B2C query also failed. Returning empty counts.', fallbackError.message);
+      console.error(
+        'Error: Fallback B2C query also failed. Returning empty counts.',
+        fallbackError.message
+      );
       return {};
     }
   }
@@ -489,6 +445,8 @@ async function fetchDailyTrend(startDate, endDate) {
   const daily = {};
   for (const row of response.rows || []) {
     const date = row.dimensionValues[0].value;
+    // Exclude any data before June 13
+    if (date < DATA_START_DATE) continue;
     const count = parseInt(row.metricValues[0].value);
     daily[date] = (daily[date] || 0) + count;
   }
@@ -518,12 +476,13 @@ async function fetchDailyHourlyTrend(startDate, endDate) {
   const dailyHourly = {};
   for (const row of response.rows || []) {
     const date = row.dimensionValues[0].value;
+    if (date < DATA_START_DATE) continue;
     const hour = row.dimensionValues[1].value;
     const count = parseInt(row.metricValues[0].value);
     const users = parseInt(row.metricValues[1].value);
     if (!dailyHourly[date]) dailyHourly[date] = {};
     dailyHourly[date][hour] = (dailyHourly[date][hour] || 0) + count;
-    dailyHourly[date][hour + "_user"] = (dailyHourly[date][hour + "_user"] || 0) + users;
+    dailyHourly[date][hour + '_user'] = (dailyHourly[date][hour + '_user'] || 0) + users;
   }
   return dailyHourly;
 }
@@ -531,7 +490,7 @@ async function fetchDailyHourlyTrend(startDate, endDate) {
 async function fetchDailyEvents(startDate, endDate) {
   const b2bNames = Object.values(EVENTS);
   const b2cNames = Object.values(B2C_EVENTS);
-  
+
   const [b2bResponse] = await client.runReport({
     property: `properties/${propertyId}`,
     dateRanges: [{ startDate, endDate }],
@@ -576,7 +535,10 @@ async function fetchDailyEvents(startDate, endDate) {
     });
     b2cRows = b2cResponse.rows || [];
   } catch (error) {
-    console.warn(`Warning: B2C daily query with service_name filter failed. Retrying without filter...`, error.message);
+    console.warn(
+      'Warning: B2C daily query with service_name filter failed. Retrying without filter...',
+      error.message
+    );
     try {
       const [b2cResponse] = await client.runReport({
         property: `properties/${propertyId}`,
@@ -599,31 +561,64 @@ async function fetchDailyEvents(startDate, endDate) {
   const daily = {};
   for (const row of b2bResponse.rows || []) {
     const date = row.dimensionValues[0].value;
+    if (date < DATA_START_DATE) continue;
     const eventName = row.dimensionValues[1].value;
     const count = parseInt(row.metricValues[0].value);
     const users = parseInt(row.metricValues[1].value);
     if (!daily[date]) daily[date] = {};
     daily[date][eventName] = (daily[date][eventName] || 0) + count;
-    daily[date][eventName + "_user"] = (daily[date][eventName + "_user"] || 0) + users;
+    daily[date][eventName + '_user'] = (daily[date][eventName + '_user'] || 0) + users;
   }
   for (const row of b2cRows) {
     const date = row.dimensionValues[0].value;
+    if (date < DATA_START_DATE) continue;
     const eventName = row.dimensionValues[1].value;
     const count = parseInt(row.metricValues[0].value);
     const users = parseInt(row.metricValues[1].value);
     if (!daily[date]) daily[date] = {};
     daily[date][eventName] = (daily[date][eventName] || 0) + count;
-    daily[date][eventName + "_user"] = (daily[date][eventName + "_user"] || 0) + users;
+    daily[date][eventName + '_user'] = (daily[date][eventName + '_user'] || 0) + users;
   }
 
   return daily;
 }
 
+function resolveStartDate(N) {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - N + 1);
+  const limit = new Date(2026, 5, 13); // June 13, 2026
+  return start < limit ? limit : start;
+}
+
+function formatDateYmd(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 async function fetchDataForPeriod(N) {
-  const currentStart = `${N}daysAgo`;
-  const currentEnd = 'today';
-  const prevStart = `${2 * N}daysAgo`;
-  const prevEnd = `${N + 1}daysAgo`;
+  const today = new Date();
+  const currentStartDate = resolveStartDate(N);
+  const currentEndDate = today;
+
+  const diffTime = Math.abs(currentEndDate - currentStartDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  const prevEndDate = new Date(currentStartDate);
+  prevEndDate.setDate(currentStartDate.getDate() - 1);
+  const prevStartDate = new Date(prevEndDate);
+  prevStartDate.setDate(prevEndDate.getDate() - diffDays + 1);
+
+  const limit = new Date(2026, 5, 13);
+  const safePrevStartDate = prevStartDate < limit ? limit : prevStartDate;
+  const safePrevEndDate = prevEndDate < limit ? limit : prevEndDate;
+
+  const currentStart = formatDateYmd(currentStartDate);
+  const currentEnd = formatDateYmd(currentEndDate);
+  const prevStart = formatDateYmd(safePrevStartDate);
+  const prevEnd = formatDateYmd(safePrevEndDate);
 
   const [c, p, daily, b2cC, b2cP, dailyEvents, dailyHourly] = await Promise.all([
     fetchEventCounts(currentStart, currentEnd),
@@ -639,10 +634,16 @@ async function fetchDataForPeriod(N) {
   const B2CE = B2C_EVENTS;
 
   // B2B Calculations
-  const totalSend = (c[E.alimtalk_send_home] || 0) + (c[E.alimtalk_send_listing] || 0) + (c[E.alimtalk_send_contract] || 0);
-  const prevTotalSend = (p[E.alimtalk_send_home] || 0) + (p[E.alimtalk_send_listing] || 0) + (p[E.alimtalk_send_contract] || 0);
-  const pageInflow = (c[E.scroll] || 0);
-  const prevPageInflow = (p[E.scroll] || 0);
+  const totalSend =
+    (c[E.alimtalk_send_home] || 0) +
+    (c[E.alimtalk_send_listing] || 0) +
+    (c[E.alimtalk_send_contract] || 0);
+  const prevTotalSend =
+    (p[E.alimtalk_send_home] || 0) +
+    (p[E.alimtalk_send_listing] || 0) +
+    (p[E.alimtalk_send_contract] || 0);
+  const pageInflow = c[E.scroll] || 0;
+  const prevPageInflow = p[E.scroll] || 0;
 
   // B2C Calculations
   const b2cPageInflow = b2cC[B2CE.page_view] || 0;
@@ -654,23 +655,30 @@ async function fetchDataForPeriod(N) {
 
   return {
     updatedAt: new Date().toISOString(),
+    period: N,
     summary: {
       totalSend,
-      totalSendChange: prevTotalSend ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100) : 0,
+      totalSendChange: prevTotalSend
+        ? Math.round(((totalSend - prevTotalSend) / prevTotalSend) * 100)
+        : 0,
       pageInflow,
-      pageInflowChange: prevPageInflow ? Math.round(((pageInflow - prevPageInflow) / prevPageInflow) * 100) : 0,
+      pageInflowChange: prevPageInflow
+        ? Math.round(((pageInflow - prevPageInflow) / prevPageInflow) * 100)
+        : 0,
       conversionRate: pageInflow ? Math.round((totalSend / pageInflow) * 1000) / 10 : 0,
       bannerDismissRate: c[E.banner_detail]
-        ? Math.round((c[E.banner_dismiss] / (c[E.banner_detail] + c[E.banner_dismiss])) * 1000) / 10
+        ? Math.round(
+            (c[E.banner_dismiss] / (c[E.banner_detail] + c[E.banner_dismiss])) * 1000
+          ) / 10
         : 0,
     },
     sendBySource: {
       home: c[E.alimtalk_send_home] || 0,
-      home_user: c[E.alimtalk_send_home + "_user"] || 0,
+      home_user: c[E.alimtalk_send_home + '_user'] || 0,
       listing: c[E.alimtalk_send_listing] || 0,
-      listing_user: c[E.alimtalk_send_listing + "_user"] || 0,
+      listing_user: c[E.alimtalk_send_listing + '_user'] || 0,
       contract: c[E.alimtalk_send_contract] || 0,
-      contract_user: c[E.alimtalk_send_contract + "_user"] || 0,
+      contract_user: c[E.alimtalk_send_contract + '_user'] || 0,
     },
     pageActions: {
       alimtalk: c[E.alimtalk_send_home] || 0,
@@ -695,12 +703,20 @@ async function fetchDataForPeriod(N) {
     // B2C Data
     b2cSummary: {
       pageInflow: b2cPageInflow,
-      pageInflowChange: prevB2cPageInflow ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100) : 0,
+      pageInflowChange: prevB2cPageInflow
+        ? Math.round(((b2cPageInflow - prevB2cPageInflow) / prevB2cPageInflow) * 100)
+        : 0,
       couponGet: b2cCouponGet,
-      couponGetChange: prevB2cCouponGet ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100) : 0,
+      couponGetChange: prevB2cCouponGet
+        ? Math.round(((b2cCouponGet - prevB2cCouponGet) / prevB2cCouponGet) * 100)
+        : 0,
       reqReserve: b2cReqReserve,
-      reqReserveChange: prevB2cReqReserve ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100) : 0,
-      conversionRate: b2cPageInflow ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10 : 0,
+      reqReserveChange: prevB2cReqReserve
+        ? Math.round(((b2cReqReserve - prevB2cReqReserve) / prevB2cReqReserve) * 100)
+        : 0,
+      conversionRate: b2cPageInflow
+        ? Math.round((b2cReqReserve / b2cPageInflow) * 1000) / 10
+        : 0,
     },
     b2cCounselingPaths: {
       gnb: b2cC[B2CE.gnb_reqReserveBtn] || 0,
@@ -721,7 +737,7 @@ async function fetchDataForPeriod(N) {
       buyFee: b2cC[B2CE.buy_fee] || 0,
       androidDown: b2cC[B2CE.android_down] || 0,
       appleDown: b2cC[B2CE.apple_down] || 0,
-    }
+    },
   };
 }
 
@@ -746,25 +762,24 @@ async function main() {
       try {
         data = await fetchDataForPeriod(period);
       } catch (err) {
-        console.error(`[${period}일] GA4 API 데이터 조회 실패. Mock 데이터로 대체합니다.`, err.message);
-        console.warn(`[도움말] PERMISSION_DENIED 에러인 경우, GA4 속성(속성 ID: ${propertyId}) 관리자 페이지에서 서비스 계정 이메일(${clientEmail})을 '뷰어(Viewer)' 권한으로 등록해주시기 바랍니다.`);
+        console.error(
+          `[${period}일] GA4 API 데이터 조회 실패. Mock 데이터로 대체합니다.`,
+          err.message
+        );
+        console.warn(
+          `[도움말] PERMISSION_DENIED 에러인 경우, GA4 속성(속성 ID: ${propertyId}) 관리자 페이지에서 서비스 계정 이메일(${clientEmail})을 '뷰어(Viewer)' 권한으로 등록해주시기 바랍니다.`
+        );
         data = generateMockDataForPeriod(period);
       }
     } else {
       data = generateMockDataForPeriod(period);
     }
 
-    const outFilename = `data-${period}.json`;
+    // Output file names follow the pattern: data-7d.json, data-14d.json, etc.
+    const outFilename = `data-${period}d.json`;
     const outPath = path.join(__dirname, '..', 'public', outFilename);
     fs.writeFileSync(outPath, JSON.stringify(data, null, 2));
     console.log(`[${period}일] 데이터 저장 완료:`, outPath);
-
-    // 30일짜리 데이터이거나 첫 번째로 처리하는 데이터인 경우 기본 data.json으로 복사
-    if (period === 30 || periods.indexOf(period) === 0) {
-      const defaultPath = path.join(__dirname, '..', 'public', 'data.json');
-      fs.writeFileSync(defaultPath, JSON.stringify(data, null, 2));
-      console.log(`[기본값] data.json 저장 완료 (복사본: ${outFilename})`);
-    }
   }
 
   console.log('GA4 데이터 수집 및 갱신 프로세스 완료!');
