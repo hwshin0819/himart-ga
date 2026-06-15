@@ -1,6 +1,9 @@
 name: GA4 Data Fetch & Deploy
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 23 * * *'
   workflow_dispatch:
