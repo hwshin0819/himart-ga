@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, PieChart, Pie, Cell, Legend,
+  LabelList,
 } from "recharts";
 
 const COLORS = {
@@ -191,7 +192,7 @@ function aggregateDataForRange(dailyEvents, startYmd, endYmd, updatedAt) {
   };
 }
 
-function KpiCard({ label, value, change, unit = "" }) {
+function KpiCard({ label, value, change, unit = "", valueColor }) {
   const isPos = change >= 0;
   return (
     <div style={{
@@ -200,8 +201,19 @@ function KpiCard({ label, value, change, unit = "" }) {
       boxShadow: "0 2px 5px rgba(0,0,0,0.01)"
     }}>
       <div style={{ fontSize: 12, color: "#888", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: "#222" }}>
-        {typeof value === "number" ? value.toLocaleString() : value}{unit}
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ fontSize: 26, fontWeight: 600, color: valueColor || "#222" }}>
+          {typeof value === "number" ? value.toLocaleString() : value}{unit}
+        </div>
+        {valueColor && (
+          <span style={{
+            display: "inline-block",
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            backgroundColor: valueColor
+          }} />
+        )}
       </div>
       {change !== undefined && (
         <div style={{ fontSize: 12, marginTop: 4, color: isPos ? "#1D9E75" : "#E24B4A" }}>
@@ -319,13 +331,13 @@ export default function App() {
   };
 
   if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontFamily: "'Pretendard', sans-serif" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#888", fontFamily: "'Pretendard', -apple-system, sans-serif" }}>
       데이터 불러오는 중...
     </div>
   );
 
   if (error || !displayData) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#E24B4A", fontFamily: "'Pretendard', sans-serif" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#E24B4A", fontFamily: "'Pretendard', -apple-system, sans-serif" }}>
       {error || "데이터 없음"}
     </div>
   );
@@ -363,6 +375,12 @@ export default function App() {
     { name: "지점 전체보기", value: pageActions.store },
   ];
   const PIE_COLORS = [COLORS.blue, COLORS.green, COLORS.coral, COLORS.pink];
+  const totalPieVal = pieData.reduce((sum, item) => sum + item.value, 0) || 1;
+  const renderPieLegend = (value, entry) => {
+    const val = entry.payload.value;
+    const pct = Math.round((val / totalPieVal) * 100);
+    return `${value} ${val.toLocaleString()}건 (${pct}%)`;
+  };
 
   const trendData = Object.entries(dailyTrend || {})
     .sort(([a], [b]) => a.localeCompare(b))
@@ -404,7 +422,7 @@ export default function App() {
   ];
 
   return (
-    <div style={{ background: "#f5f6f8", minHeight: "100vh", padding: "24px", fontFamily: "'Pretendard', 'Apple SD Gothic Neo', sans-serif" }}>
+    <div style={{ background: "#f5f6f8", minHeight: "100vh", padding: "24px", fontFamily: "'Pretendard', -apple-system, sans-serif" }}>
       {/* 대시보드 헤더 */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: "16px" }}>
         <div>
@@ -532,8 +550,18 @@ export default function App() {
         <div>
           {/* B2B 세부 KPI (전환율, 거부율) */}
           <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-            <KpiCard label="B2B 유입→발송 전환율" value={summary.conversionRate} unit="%" />
-            <KpiCard label="B2B 매물배너 거부율" value={summary.bannerDismissRate} unit="%" />
+            <KpiCard
+              label="B2B 유입→발송 전환율"
+              value={summary.conversionRate}
+              unit="%"
+              valueColor={summary.conversionRate >= 30 ? "#1D9E75" : "#E24B4A"}
+            />
+            <KpiCard
+              label="B2B 매물배너 거부율"
+              value={summary.bannerDismissRate}
+              unit="%"
+              valueColor={summary.bannerDismissRate >= 50 ? "#E24B4A" : "#1D9E75"}
+            />
           </div>
 
           {/* B2B 주요 시각화 */}
@@ -541,7 +569,7 @@ export default function App() {
             <Card>
               <SectionTitle>진입점별 알림톡 발송 수</SectionTitle>
               <ResponsiveContainer width="100%" height={140}>
-                <BarChart data={sourceData} layout="vertical" margin={{ left: 10, right: 30 }}>
+                <BarChart data={sourceData} layout="vertical" margin={{ left: 10, right: 55, top: 5, bottom: 5 }}>
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 12, fill: "#888" }} />
                   <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "건"]} />
@@ -549,6 +577,7 @@ export default function App() {
                     {sourceData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
+                    <LabelList dataKey="value" position="right" formatter={(v) => `${v}건`} style={{ fill: "#555", fontSize: 11, fontWeight: 600 }} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -571,11 +600,19 @@ export default function App() {
               <SectionTitle>제휴페이지 내 행동 분포</SectionTitle>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="45%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={2}>
+                  <Pie data={pieData} cx="38%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={2}>
                     {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
                   </Pie>
                   <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "회"]} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  <Legend
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={renderPieLegend}
+                    wrapperStyle={{ right: 0, fontSize: 11 }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </Card>
@@ -678,7 +715,7 @@ export default function App() {
             <Card>
               <SectionTitle>상담신청 경로 비교</SectionTitle>
               <ResponsiveContainer width="100%" height={170}>
-                <BarChart data={b2cCounselingData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={b2cCounselingData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#888" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#888" }} />
                   <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} formatter={(v) => [v.toLocaleString() + "건"]} />
@@ -686,6 +723,7 @@ export default function App() {
                     {b2cCounselingData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
+                    <LabelList dataKey="value" position="top" formatter={(v) => `${v}건`} style={{ fill: "#555", fontSize: 11, fontWeight: 600 }} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

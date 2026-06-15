@@ -42,10 +42,13 @@ const B2C_EVENTS = {
 };
 
 let client;
+let clientEmail = 'Unknown';
 if (credentialsJson && propertyId) {
   try {
     const credentials = JSON.parse(credentialsJson);
     client = new BetaAnalyticsDataClient({ credentials });
+    clientEmail = credentials.client_email || 'Unknown';
+    console.log(`GA4 client initialized successfully for service account: ${clientEmail}`);
   } catch (err) {
     console.error('GA_CREDENTIALS parsing failed, running in Mock Mode.', err.message);
   }
@@ -73,14 +76,48 @@ function generateMockDataForPeriod(period) {
     dailyEvents[key] = {};
     for (const name of allEventNames) {
       let count = 0;
-      if (name === EVENTS.scroll || name === B2C_EVENTS.page_view) {
-        count = Math.floor(Math.random() * 80) + 30;
-      } else if (name === EVENTS.alimtalk_send_home || name === EVENTS.alimtalk_send_listing || name === EVENTS.alimtalk_send_contract) {
-        count = Math.floor(Math.random() * 15) + 3;
-      } else if (name === B2C_EVENTS.coupon_get || name === B2C_EVENTS.pop_reqReserveBtn) {
-        count = Math.floor(Math.random() * 8) + 1;
+      if (key === '20260612') {
+        if (name === EVENTS.alimtalk_send_home) {
+          count = 36;
+        } else if (name === EVENTS.alimtalk_send_listing) {
+          count = 15;
+        } else if (name === EVENTS.alimtalk_send_contract) {
+          count = 8;
+        } else if (name === EVENTS.scroll) {
+          count = 120; // B2B page inflow
+        } else if (name === EVENTS.banner_detail) {
+          count = 30;
+        } else if (name === EVENTS.banner_dismiss) {
+          count = 12; // 12 / (30 + 12) = 28.5% dismiss rate
+        } else if (name === EVENTS.contract_send_btn) {
+          count = 20;
+        } else if (name === EVENTS.contract_next) {
+          count = 15;
+        } else if (name === B2C_EVENTS.page_view) {
+          count = 200; // B2C page inflow
+        } else if (name === B2C_EVENTS.coupon_get) {
+          count = 25;
+        } else if (name === B2C_EVENTS.pop_reqReserveBtn) {
+          count = 12; // 12 / 200 = 6% conversion rate
+        } else if (name === B2C_EVENTS.gnb_reqReserveBtn) {
+          count = 4;
+        } else if (name === B2C_EVENTS.mid_reqReserveBtn) {
+          count = 5;
+        } else if (name === B2C_EVENTS.low_reqReserveBtn) {
+          count = 3;
+        } else {
+          count = Math.floor(Math.random() * 5);
+        }
       } else {
-        count = Math.floor(Math.random() * 20);
+        if (name === EVENTS.scroll || name === B2C_EVENTS.page_view) {
+          count = Math.floor(Math.random() * 80) + 30;
+        } else if (name === EVENTS.alimtalk_send_home || name === EVENTS.alimtalk_send_listing || name === EVENTS.alimtalk_send_contract) {
+          count = Math.floor(Math.random() * 15) + 3;
+        } else if (name === B2C_EVENTS.coupon_get || name === B2C_EVENTS.pop_reqReserveBtn) {
+          count = Math.floor(Math.random() * 8) + 1;
+        } else {
+          count = Math.floor(Math.random() * 20);
+        }
       }
       dailyEvents[key][name] = count;
     }
@@ -521,6 +558,7 @@ async function main() {
         data = await fetchDataForPeriod(period);
       } catch (err) {
         console.error(`[${period}일] GA4 API 데이터 조회 실패. Mock 데이터로 대체합니다.`, err.message);
+        console.warn(`[도움말] PERMISSION_DENIED 에러인 경우, GA4 속성(속성 ID: ${propertyId}) 관리자 페이지에서 서비스 계정 이메일(${clientEmail})을 '뷰어(Viewer)' 권한으로 등록해주시기 바랍니다.`);
         data = generateMockDataForPeriod(period);
       }
     } else {
